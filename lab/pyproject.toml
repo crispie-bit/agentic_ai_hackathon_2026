@@ -1,0 +1,63 @@
+[project]
+name = "agentic-teaching-lab"
+version = "1.0.0"
+description = "Hands-on lab for the Agentic AI practitioner track"
+requires-python = ">=3.11"
+
+# Base install = everything Session 1 needs, and nothing else. No AWS SDK, no
+# PDF toolchain. `uv sync` finishes in seconds, which matters when thirty
+# people run it at once on conference wifi.
+dependencies = [
+    # Session 1 runs on Groq's free tier. `groq` is the raw SDK (lab 1),
+    # `langchain-groq` is the ChatModel (labs 2 and 3).
+    "groq>=0.37",
+    "langchain-groq>=1.1",
+    # LangChain / LangGraph, pinned to the 1.x generation, which is what the
+    # slides show (create_agent + middleware). If you need the older
+    # create_react_agent(prompt=...) signature, drop to langchain==0.3.27 and
+    # langgraph==0.4.8 — both appear across our projects.
+    "langchain>=1.1.2",
+    "langgraph>=0.6",
+    # Structured output.
+    "pydantic>=2.11",
+    # Lets a compiled graph draw itself as ASCII — used in the Session 2 state
+    # demo, and genuinely useful for debugging your own graphs later.
+    "grandalf>=0.8",
+]
+
+[project.optional-dependencies]
+# Session 2 and anything on Bedrock. This is the Day 2 pre-work install.
+aws = [
+    "boto3>=1.42",
+    "langchain-aws>=1.4.3",
+]
+
+# Take-home labs only. Kept optional so the Day 1 sync stays fast.
+#
+# NOTE on PDFs: the slides show pdf2image, because that is what the real code
+# uses. The lab uses PyMuPDF instead. pdf2image wraps poppler's pdftoppm, so
+# `pip install pdf2image` alone does not work — you also need the poppler-utils
+# system package. PyMuPDF ships a self-contained wheel, so the lab runs
+# everywhere. The content blocks you build are identical either way.
+takehome = [
+    "deepagents>=0.5.2",
+    "claude-agent-sdk>=0.1.58",
+    "pymupdf>=1.24",
+    "pypdf>=6.0",
+    # Generates the synthetic sample PDF (no client data anywhere in this repo).
+    "reportlab>=4.2",
+]
+
+# Take-home 07/08 only — deploying an agent to Bedrock AgentCore.
+# bedrock-agentcore     is the runtime SDK (BedrockAgentCoreApp), imported by the
+#                       agent that runs IN the cloud.
+# ...-starter-toolkit   is the deploy/destroy control plane, used by deploy.py and
+#                       teardown.py on your machine. It also installs the
+#                       `agentcore` CLI, which does the same things interactively.
+agentcore = [
+    "bedrock-agentcore>=0.1.0",
+    "bedrock-agentcore-starter-toolkit>=0.1.0",
+]
+
+[tool.uv]
+package = false

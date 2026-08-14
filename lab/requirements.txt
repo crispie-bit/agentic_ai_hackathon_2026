@@ -1,0 +1,44 @@
+# Lab dependencies, for pip users.
+#
+#   python -m venv .venv && source .venv/bin/activate
+#   pip install -r requirements.txt
+#
+# The project is defined in pyproject.toml and `uv sync` is the supported
+# path — this file is a convenience mirror for anyone without uv. Keep the
+# two in step when you add a dependency.
+#
+# Versions are the ones this lab was verified against, as lower bounds.
+
+# ---- Session 1: Groq. No AWS, no cost. --------------------------------
+groq>=0.37
+langchain-groq>=1.1
+langchain>=1.1.2
+langgraph>=0.6
+pydantic>=2.11
+grandalf>=0.8              # lets a compiled graph draw itself as ASCII
+
+# ---- Session 2 / §3-§4: Bedrock  (uv: --extra aws) --------------------
+boto3>=1.42
+langchain-aws>=1.4.3
+
+# ---- §5 DeepAgents & Agent SDK  (uv: --extra takehome) ----------------
+deepagents>=0.6.12
+claude-agent-sdk>=0.2.128
+#
+# NOTE: claude-agent-sdk also needs the Claude Code CLI on your PATH,
+# because it drives it as a subprocess. pip cannot install this for you:
+#
+#     npm install -g @anthropic-ai/claude-code
+
+# ---- Take-home lab 04: PDFs -------------------------------------------
+# The slides show pdf2image, which wraps poppler's pdftoppm and needs the
+# poppler-utils system package. PyMuPDF ships a self-contained wheel, so
+# the lab uses that instead. The content blocks are identical either way.
+pymupdf>=1.24
+pypdf>=6.0
+reportlab>=4.2             # generates the synthetic sample PDF
+
+# ---- Take-home labs 07/08: AgentCore  (uv: --extra agentcore) ---------
+# Commented out by default: these create real, billable AWS resources.
+# bedrock-agentcore>=0.1.0
+# bedrock-agentcore-starter-toolkit>=0.1.0

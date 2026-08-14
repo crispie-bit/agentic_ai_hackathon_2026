@@ -1,0 +1,14 @@
+# Dependencies for the agent RUNNING IN THE CLOUD — not for your machine.
+#
+# AgentCore installs exactly this list in the runtime. Keep it minimal: every
+# line is install time on every deploy, and anything unused is attack surface in
+# something with an execution role.
+#
+# Notably absent: the starter toolkit. That is a deploy-time tool that runs on
+# your laptop; the agent itself never needs it.
+
+bedrock-agentcore>=0.1.0
+boto3>=1.42
+langchain>=1.1.2
+langchain-aws>=1.4.3
+langgraph>=0.6
