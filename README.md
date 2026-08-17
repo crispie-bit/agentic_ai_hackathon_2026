@@ -13,6 +13,7 @@ Day 2 moves the same code to Bedrock by changing one line.
 cd lab
 uv sync
 echo 'GROQ_API_KEY=gsk_...' > .env          # console.groq.com -> API Keys
+uv run 00_check_env.py                      # offline preflight, no key needed
 uv run section_1_foundation/00_check_groq.py
 ```
 
@@ -21,7 +22,7 @@ Then work through the sections in order. Each folder has its own README.
 | | Folder | Covers | Runs on |
 |---|---|---|---|
 | §1 | `lab/section_1_foundation/` | what an LLM call actually is | Groq |
-| §2 | `lab/section_2_agentic_ai_basic/` | memory, tools, planning, the loop | Groq |
+| §2 | `lab/section_2_agentic_ai_basic/` | memory, tools, planning, the loop, prompting & RAG | Groq |
 | §3 | `lab/section_3_bedrock/` | the raw call, tools, cost, multimodal | Bedrock |
 | §4 | `lab/section_4_langgraph/` | state, nodes, edges, tools × state | either |
 | §5 | `lab/section_5_deepagents/` | the abstraction ladder, sub-agents, Agent SDK | Bedrock |
@@ -30,13 +31,16 @@ Then work through the sections in order. Each folder has its own README.
 Full setup, keys and troubleshooting: [`lab/README.md`](lab/README.md).
 AWS CLI and SSO setup: [`lab/AWS_SETUP.md`](lab/AWS_SETUP.md).
 
-## Two hands-on labs
+## Hands-on labs
 
-Most files are demos to run and read. Two are exercises with `TODO(student)`
-blocks and a runnable solution beside them:
+Most files are demos to run and read. These are exercises with `TODO(student)`
+blocks — the file runs before you touch it and gets the answer wrong in a
+useful way:
 
-- `lab/section_2_agentic_ai_basic/05_agent_lab.py`
-- `lab/section_4_langgraph/01_graph_lab.py`
+- `lab/section_2_agentic_ai_basic/05_agent_lab.py` — the agent loop, 4 TODOs
+- `lab/section_2_agentic_ai_basic/06d_rag.py` — retrieval from scratch, 2 TODOs
+- `lab/section_2_agentic_ai_basic/prompt_engineering.py` — 4 prompt experiments to break
+- `lab/section_4_langgraph/01_graph_lab.py` — state, nodes, edges
 
 ## ⚠ §6 creates real, billable AWS resources
 
