@@ -1,240 +1,276 @@
 """
-§3 · 04 — Two models, one prompt, one cost comparison.
+§3 · 03 — Token accounting: what the call actually cost.
 
-    uv run section_3_bedrock/04_cost_and_optimisation.py
+    uv run section_3_bedrock/03_token_costs.py
 
-Sends the same prompt to two models and prints what each one cost. Credentials
-come from bedrock_runtime() in _common, so the active SSO session is used —
-run `aws sso login --profile <your-profile>` first if the token has expired.
+01 showed you the raw call. This one is about the `usage` block that comes back
+with it, because that block is your invoice.
 
-Edit the settings block below to change the prompt or the pair being compared.
+Four counters, not two. `input_tokens` does NOT include cached prompt tokens —
+those are billed separately, at a premium on the write and at a discount on
+every read. Price the call off all four or you will under-report every time you
+turn caching on.
 
-The output tells you the price difference. It does NOT tell you whether the
-cheaper answer is good enough — that is a judgement you make by reading both,
-which is why each answer is printed underneath.
+No arguments. Edit QUESTION below, or export BEDROCK_PROMPT.
 """
 
+from __future__ import annotations
+
 import json
+import os
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Iterator, Mapping, Sequence
 
-import _bootstrap  # noqa: F401
+import _bootstrap  # noqa: F401  — must come first; puts lab/ on sys.path
 
-from _common import bedrock_runtime
+from _common import MODEL_ID, REGION, banner, bedrock_runtime, report_usage
 
-# ---- settings ------------------------------------------------------------
-PROMPT = "Classify this ticket in one word: the office printer is offline."
-COMPARE = ["haiku", "sonnet"]   # any two keys from MODELS
-CALLS = 5000                    # projected number of calls
-MAX_TOKENS = 500
+ANTHROPIC_VERSION = "bedrock-2023-05-31"
+MAX_TOKENS = 300
+TEMPERATURE = 0
 
-# Cache rates, as a multiple of that model's input rate. Roughly consistent
-# across models, unlike the absolute figures.
-CACHE_READ_MULTIPLIER = 0.10    # a tenth of input
-CACHE_WRITE_MULTIPLIER = 1.25   # a little more than input
+QUESTION = os.environ.get("BEDROCK_PROMPT", "In one sentence: what is prompt caching?")
 
-# The unoptimised version of the same job: a bloated standing prompt, and an
-# instruction that invites a long answer. Both are extremely common.
-VERBOSE_SYSTEM = (
-    "You are an IT service desk assistant for a large organisation.\n"
-    "Follow these standing rules when classifying a ticket:\n"
-    + "\n".join(
-        f"{i}. Rule {i}: consider the affected system, the user's department, "
-        f"the urgency, the likely root cause, and any related recent incidents "
-        f"before deciding on a category."
-        for i in range(1, 120)
-    )
-)
-CHATTY_PROMPT = ("Classify this ticket: the office printer is offline. "
-                 "Explain your reasoning in full before giving the category.")
-TERSE_SYSTEM = "You classify IT tickets. Reply with one word."
-
-# ==========================================================================
-# IDS AND RATES ARE NOT PART OF THE CODE. Both differ per region and move
-# over time. Copy from https://aws.amazon.com/bedrock/pricing and from the
-# Bedrock console before relying on them. USD per MILLION tokens.
-#
-# NOTE THE PREFIX. Outside us-east-1 you generally cannot invoke a bare id
-# like "anthropic.claude-sonnet-4-20250514-v1:0" — it returns "The provided
-# model identifier is invalid." You need a cross-region INFERENCE PROFILE:
-#
-#     global.*   routed across regions worldwide
-#     apac.*     routed within Asia-Pacific
-#
-# List the ones your account can use with:
-#
-#     aws bedrock list-inference-profiles --region ap-southeast-1 \
-#       --query 'inferenceProfileSummaries[].inferenceProfileId'
-#
-# These three are verified working in ap-southeast-1. If you are elsewhere,
-# run that command and paste your own ids in.
-# ==========================================================================
-MODELS = {
-    "haiku": {
-        "id": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
-        "input": 1.00,
-        "output": 5.00,
-    },
-    "sonnet": {
-        "id": "global.anthropic.claude-sonnet-4-5-20250929-v1:0",
-        "input": 3.00,
-        "output": 15.00,
-    },
-    "opus": {
-        "id": "global.anthropic.claude-opus-4-5-20251101-v1:0",
-        "input": 5.00,
-        "output": 25.00,
-    },
+# USD per MILLION tokens. Model- and region-specific, and they change. Override
+# with BEDROCK_RATES_FILE (a JSON file with any of these four keys) rather than
+# editing this dict, so the numbers below are never quietly wrong.
+DEFAULT_RATES: dict[str, float] = {
+    "input": 1.00,
+    "output": 5.00,
+    "cache_write": 1.25,   # first call: more expensive than plain input
+    "cache_read": 0.10,    # every call after: ~10x cheaper
 }
-# --------------------------------------------------------------------------
+
+TOKEN_FIELDS = ("input", "output", "cache_write", "cache_read")
+
+Message = dict[str, Any]
 
 
-def run(client, model: dict) -> tuple[int, int, str]:
-    """Invoke one model. Returns (input_tokens, output_tokens, answer)."""
-    body = json.dumps({
-        "anthropic_version": "bedrock-2023-05-31",
-        "messages": [{"role": "user", "content": PROMPT}],
-        "max_tokens": MAX_TOKENS,
-        "temperature": 0,
-    })
-    try:
-        payload = json.loads(
-            client.invoke_model(modelId=model["id"], body=body)["body"].read())
-    except client.exceptions.ValidationException as exc:
-        raise SystemExit(
-            f"\n{model['id']}\nwas rejected: {exc}\n\n"
-            "  Almost always the model id, not your credentials. Outside\n"
-            "  us-east-1 you need a global.* or apac.* inference profile.\n"
-            "  List what this account can invoke:\n\n"
-            "    aws bedrock list-inference-profiles --region ap-southeast-1 \\\n"
-            "      --query 'inferenceProfileSummaries[].inferenceProfileId'\n"
-        ) from exc
-    except client.exceptions.AccessDeniedException as exc:
-        raise SystemExit(
-            f"\n{model['id']}\nis a valid id, but this account cannot invoke it: {exc}\n\n"
-            "  Enable it under Bedrock -> Model access, in this region.\n"
-        ) from exc
-
-    usage = payload["usage"]
-    answer = "".join(b.get("text", "") for b in payload["content"]).strip()
-    return usage["input_tokens"], usage["output_tokens"], answer
+def load_rates(path: str | os.PathLike[str] | None = None) -> dict[str, float]:
+    """DEFAULT_RATES, overlaid with $BEDROCK_RATES_FILE if it is set."""
+    path = path or os.environ.get("BEDROCK_RATES_FILE")
+    rates = dict(DEFAULT_RATES)
+    if path:
+        rates.update(json.loads(Path(path).read_text(encoding="utf-8")))
+    return rates
 
 
-def cost_usd(model: dict, in_tokens: int, out_tokens: int,
-             cache_read: int = 0, cache_write: int = 0) -> float:
-    return (in_tokens * model["input"]
-            + out_tokens * model["output"]
-            + cache_read * model["input"] * CACHE_READ_MULTIPLIER
-            + cache_write * model["input"] * CACHE_WRITE_MULTIPLIER) / 1_000_000
+@dataclass(frozen=True)
+class Usage:
+    """The four counters, normalised off Bedrock's wire names."""
+
+    input: int = 0
+    output: int = 0
+    cache_write: int = 0
+    cache_read: int = 0
+
+    @classmethod
+    def from_payload(cls, usage: Mapping[str, Any] | None) -> "Usage":
+        # `or 0` because Bedrock omits the cache keys entirely when caching is
+        # off, and has been known to send them back as null.
+        usage = usage or {}
+        return cls(
+            input=usage.get("input_tokens", 0) or 0,
+            output=usage.get("output_tokens", 0) or 0,
+            cache_write=usage.get("cache_creation_input_tokens", 0) or 0,
+            cache_read=usage.get("cache_read_input_tokens", 0) or 0,
+        )
+
+    @property
+    def billed_input(self) -> int:
+        """Every prompt token you paid for, cached or not."""
+        return self.input + self.cache_write + self.cache_read
+
+    def cost(self, rates: Mapping[str, float] | None = None) -> float:
+        rates = rates or DEFAULT_RATES
+        return sum(
+            getattr(self, f) * rates.get(f, 0.0) for f in TOKEN_FIELDS
+        ) / 1_000_000
+
+    def __add__(self, other: "Usage") -> "Usage":
+        return Usage(*(getattr(self, f) + getattr(other, f) for f in TOKEN_FIELDS))
+
+    def as_dict(self) -> dict[str, int]:
+        return {f: getattr(self, f) for f in TOKEN_FIELDS}
 
 
-# --------------------------------------------------------------------------
-# Optimisation. Same task, four ways, each one measured.
-# --------------------------------------------------------------------------
+class BedrockClient:
+    """invoke_model / invoke_model_with_response_stream, with a running tab."""
 
-def measure(client, model: dict, prompt: str, system: list | None = None,
-            max_tokens: int = 500) -> dict:
-    """Run one variant and return its token counts and cost."""
-    body = {
-        "anthropic_version": "bedrock-2023-05-31",
-        "messages": [{"role": "user", "content": prompt}],
-        "max_tokens": max_tokens,
-        "temperature": 0,
-    }
-    if system:
-        body["system"] = system
+    def __init__(
+        self,
+        model_id: str = MODEL_ID,
+        rates: Mapping[str, float] | None = None,
+        client: Any = None,
+        verbose: bool = True,
+    ) -> None:
+        self.model_id = model_id
+        self.rates = dict(rates) if rates else load_rates()
+        self._client = client or bedrock_runtime()
+        self.verbose = verbose
+        self.totals = Usage()
+        self.last_usage = Usage()
+        self.last_text = ""
+        self.calls = 0
 
-    payload = json.loads(
-        client.invoke_model(modelId=model["id"], body=json.dumps(body))["body"].read())
-    u = payload["usage"]
-    fields = {
-        "in": u.get("input_tokens", 0),
-        "out": u.get("output_tokens", 0),
-        "cache_read": u.get("cache_read_input_tokens", 0),
-        "cache_write": u.get("cache_creation_input_tokens", 0),
-        "answer": "".join(b.get("text", "") for b in payload["content"]).strip(),
-    }
-    fields["cost"] = cost_usd(model, fields["in"], fields["out"],
-                              fields["cache_read"], fields["cache_write"])
-    return fields
+    # -- request -------------------------------------------------------------
+
+    @staticmethod
+    def _messages(prompt: str | Sequence[Message]) -> list[Message]:
+        """Accept a bare string or a full messages list (for multi-turn)."""
+        if isinstance(prompt, str):
+            return [{"role": "user", "content": prompt}]
+        return [dict(m) for m in prompt]
+
+    def _body(
+        self,
+        prompt: str | Sequence[Message],
+        system: str | None = None,
+        max_tokens: int = MAX_TOKENS,
+        temperature: float = TEMPERATURE,
+        cache_system: bool = False,
+    ) -> str:
+        body: dict[str, Any] = {
+            "anthropic_version": ANTHROPIC_VERSION,
+            "messages": self._messages(prompt),
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+        }
+        if system:
+            # `system` as a LIST of blocks, not a string — that is the only
+            # shape that can carry cache_control.
+            block: dict[str, Any] = {"type": "text", "text": system}
+            if cache_system:
+                block["cache_control"] = {"type": "ephemeral"}
+            body["system"] = [block]
+        return json.dumps(body)
+
+    def _record(self, raw: Mapping[str, Any] | None, label: str) -> Usage:
+        usage = Usage.from_payload(raw)
+        self.totals += usage
+        self.last_usage = usage
+        self.calls += 1
+        if self.verbose:
+            report_usage(label, dict(raw or {}))
+            print(f"  cost:        ${usage.cost(self.rates):.6f}")
+        return usage
+
+    # -- calls ---------------------------------------------------------------
+
+    def invoke(
+        self,
+        prompt: str | Sequence[Message],
+        system: str | None = None,
+        max_tokens: int = MAX_TOKENS,
+        temperature: float = TEMPERATURE,
+        cache_system: bool = False,
+    ) -> tuple[str, Usage]:
+        response = self._client.invoke_model(
+            modelId=self.model_id,
+            body=self._body(prompt, system, max_tokens, temperature, cache_system),
+            contentType="application/json",
+            accept="application/json",
+        )
+        envelope = json.loads(response["body"].read())
+        text = "".join(
+            block.get("text", "")
+            for block in envelope.get("content", [])
+            if block.get("type") == "text"
+        )
+        self.last_text = text
+        return text, self._record(envelope.get("usage"), "invoke_model")
+
+    def stream(
+        self,
+        prompt: str | Sequence[Message],
+        system: str | None = None,
+        max_tokens: int = MAX_TOKENS,
+        temperature: float = TEMPERATURE,
+        cache_system: bool = False,
+    ) -> Iterator[str]:
+        """Yield text deltas; the tab is settled when the stream is exhausted.
+
+        Usage arrives SPLIT across two events: prompt and cache counts ride on
+        message_start, output tokens on message_delta. Read only the second and
+        every streamed call looks like the prompt was free.
+        """
+        response = self._client.invoke_model_with_response_stream(
+            modelId=self.model_id,
+            body=self._body(prompt, system, max_tokens, temperature, cache_system),
+            contentType="application/json",
+            accept="application/json",
+        )
+        raw: dict[str, Any] = {}
+        parts: list[str] = []
+        for event in response["body"]:
+            chunk = json.loads(event["chunk"]["bytes"])
+            kind = chunk.get("type")
+            if kind == "content_block_delta":
+                delta = chunk.get("delta", {}).get("text", "")
+                if delta:
+                    parts.append(delta)
+                    yield delta
+            elif kind == "message_start":
+                raw.update(chunk.get("message", {}).get("usage") or {})
+            elif kind == "message_delta":
+                raw.update(chunk.get("usage") or {})
+        self.last_text = "".join(parts)
+        self._record(raw, "invoke_model_with_response_stream")
+
+    # -- reporting -----------------------------------------------------------
+
+    def report(self) -> dict[str, Any]:
+        return {
+            "model_id": self.model_id,
+            "region": REGION,
+            "calls": self.calls,
+            "tokens": self.totals.as_dict(),
+            "billed_input": self.totals.billed_input,
+            "cost_usd": round(self.totals.cost(self.rates), 6),
+        }
 
 
-def row(label: str, f: dict) -> None:
-    print(f"  {label:26}{f['in']:>7}{f['out']:>6}{f['cache_read']:>8}"
-          f"{f['cost']:>12.6f}{f['cost'] * CALLS:>11.2f}")
+# A system prompt only gets cached if it clears the model's minimum — roughly
+# 1k tokens for Sonnet, more for Haiku. Below that the API silently ignores
+# cache_control and both cache counters stay 0. That is the expected result,
+# not a broken script, which is why this one is padded to be long enough.
+LONG_SYSTEM = (
+    "You are a terse assistant for an AWS cost-engineering course. "
+    "Answer in one sentence. Never speculate about pricing figures.\n\n"
+    + "Reference note: token accounting on Bedrock is per-model and per-region, "
+    "and cached prompt tokens are billed on a separate line from ordinary input "
+    "tokens, so any cost model that reads only input_tokens and output_tokens "
+    "will understate a cached workload.\n" * 40
+)
 
 
 def main() -> None:
-    client = bedrock_runtime()
+    banner("token accounting — one call")
+    print(f"  model:  {MODEL_ID}")
+    print(f"  region: {REGION}")
+    print(f"  prompt: {QUESTION}\n")
 
-    print(f"prompt: {PROMPT}\n")
+    client = BedrockClient()
 
-    results = []
-    for name in COMPARE:
-        model = MODELS[name]
-        in_tok, out_tok, answer = run(client, model)
-        results.append({"name": name, "in": in_tok, "out": out_tok,
-                        "answer": answer,
-                        "cost": cost_usd(model, in_tok, out_tok)})
+    text, usage = client.invoke(QUESTION)
+    print(f"  text:        {text.strip()}")
+    print(f"  billed in:   {usage.billed_input} (input + cache_write + cache_read)")
 
-    print(f"{'model':10}{'in':>8}{'out':>8}{'per call':>14}{f'x{CALLS}':>14}")
-    print("-" * 54)
-    for r in results:
-        print(f"{r['name']:10}{r['in']:>8}{r['out']:>8}"
-              f"{r['cost']:>14.6f}{r['cost'] * CALLS:>14.2f}")
+    banner("the same system prompt, twice — watch the cache counters")
+    # Call 1 pays cache_write. Call 2 pays cache_read, ~10x less, and its
+    # input_tokens drops to just the new user turn.
+    for label in ("write", "read "):
+        print(f"\n  pass ({label.strip()}):")
+        client.invoke(QUESTION, system=LONG_SYSTEM, cache_system=True)
 
-    cheap, pricey = sorted(results, key=lambda r: r["cost"])
-    ratio = pricey["cost"] / max(cheap["cost"], 1e-9)
-    saved = (pricey["cost"] - cheap["cost"]) * CALLS
-    print(f"\n{cheap['name']} is {ratio:.1f}x cheaper "
-          f"— ${saved:.2f} per {CALLS} calls")
+    banner("streaming — usage arrives in pieces")
+    for delta in client.stream("Count from 1 to 10, one number per line."):
+        print(delta, end="", flush=True)
+    print()
 
-    # The number above is only half the decision. Print both answers so the
-    # other half — is the cheap one still right? — is visible too.
-    for r in results:
-        print(f"\n--- {r['name']} ---\n{r['answer']}")
-    print("\nCheaper only wins if that answer is still correct.")
-
-    optimise(client)
-
-
-def optimise(client) -> None:
-    """The same classification job, optimised one lever at a time."""
-    model = MODELS[COMPARE[0]]
-
-    print(f"\n\noptimising the same job on {COMPARE[0]}, {CALLS} calls")
-    print(f"  {'':26}{'in':>7}{'out':>6}{'cached':>8}{'per call':>12}"
-          f"{f'x{CALLS}':>11}")
-    print("  " + "-" * 70)
-
-    # 0. The baseline: bloated system prompt, and an answer that rambles.
-    base = measure(client, model, CHATTY_PROMPT,
-                   [{"type": "text", "text": VERBOSE_SYSTEM}])
-    row("baseline", base)
-
-    # 1. Trim the standing prompt. 119 rules nobody reads -> one sentence.
-    trimmed = measure(client, model, CHATTY_PROMPT,
-                      [{"type": "text", "text": TERSE_SYSTEM}])
-    row("+ trim the system prompt", trimmed)
-
-    # 2. Constrain the OUTPUT. It bills at ~5x input, so this is the lever
-    #    people most often forget.
-    terse = measure(client, model, PROMPT,
-                    [{"type": "text", "text": TERSE_SYSTEM}], max_tokens=10)
-    row("+ ask for one word", terse)
-
-    # 3. If the long prompt is genuinely needed, cache it instead of trimming.
-    cached_system = [{"type": "text", "text": VERBOSE_SYSTEM,
-                      "cache_control": {"type": "ephemeral"}}]
-    measure(client, model, PROMPT, cached_system, max_tokens=10)   # warm it
-    cached = measure(client, model, PROMPT, cached_system, max_tokens=10)
-    row("(or: cache it instead)", cached)
-
-    saving = base["cost"] / max(terse["cost"], 1e-9)
-    print(f"\n  baseline   ${base['cost']:.6f}/call   ${base['cost'] * CALLS:.2f} "
-          f"per {CALLS}")
-    print(f"  optimised  ${terse['cost']:.6f}/call   ${terse['cost'] * CALLS:.2f} "
-          f"per {CALLS}")
-    print(f"  saving     {saving:.0f}x  — "
-          f"${(base['cost'] - terse['cost']) * CALLS:.2f} per {CALLS} calls")
+    banner("the tab")
+    print(json.dumps(client.report(), indent=2))
 
 
 if __name__ == "__main__":

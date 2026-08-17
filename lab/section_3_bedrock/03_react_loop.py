@@ -1,234 +1,145 @@
-"""Token usage and cost accounting for Amazon Bedrock (Anthropic Messages API).
+"""
+§3 · 03 — The ReAct loop against raw Bedrock.
 
-Wraps ``invoke_model`` / ``invoke_model_with_response_stream`` and reports the
-token usage and USD cost of every call.
+    uv run section_3_bedrock/03_react_loop.py
 
-Configuration (environment variables):
-    BEDROCK_MODEL_ID    model id to invoke (required)
-    AWS_REGION          region for the bedrock-runtime client (default us-east-1)
-    BEDROCK_RATES_FILE  optional JSON file of per-million-token rates that
-                        overrides DEFAULT_RATES, e.g.
-                        {"input": 1.0, "output": 5.0,
-                         "cache_write": 1.25, "cache_read": 0.1}
+The same loop as §2, with no LangChain in the way. Everything is a dict you
+build yourself, which makes one thing visible that LangChain hides:
 
-Usage:
-    from bedrock_cost import BedrockClient
+    A TOOL RESULT IS SENT BACK AS A "user" MESSAGE.
 
-    client = BedrockClient()
-    text, usage = client.invoke("Summarise this order.", system=SYSTEM_PROMPT)
-    print(usage.cost(client.rates), client.totals)
+Not an assistant turn, not a special role. In the Anthropic protocol the tool
+output arrives from the user side, and `ToolMessage` in §2 is a wrapper over
+exactly this shape.
+
+Two other differences from §2:
+
+    reply["content"]      a LIST of blocks, not a string. One reply can hold
+                          a text block and several tool_use blocks together.
+    reply["stop_reason"]  "tool_use" means it wants a tool; "end_turn" means
+                          it is finished. This drives the loop, not the text.
+
+Requires AWS credentials and model access. Run
+`uv run section_1_foundation/00_check_bedrock.py` first.
 """
 
-from __future__ import annotations
-
-import argparse
 import json
-import logging
-import os
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Any, Iterator, Mapping
 
-import boto3
+import _bootstrap  # noqa: F401
 
-LOGGER = logging.getLogger(__name__)
+from _common import MODEL_ID, banner, bedrock_runtime, report_usage
 
-ANTHROPIC_VERSION = "bedrock-2023-05-31"
-DEFAULT_REGION = os.environ.get("AWS_REGION", "us-east-1")
-TOKEN_FIELDS = ("input", "output", "cache_write", "cache_read")
-
-# USD per million tokens. Rates are model- and region-specific and change over
-# time; override with BEDROCK_RATES_FILE rather than editing this default.
-DEFAULT_RATES: dict[str, float] = {
-    "input": 1.00,
-    "output": 5.00,
-    "cache_write": 1.25,
-    "cache_read": 0.10,
-}
+MAX_STEPS = 6
+QUESTION = "Should we restock SKU-77? Check the stock and the lead time first."
 
 
-def load_rates(path: str | os.PathLike[str] | None = None) -> dict[str, float]:
-    """Load per-million-token rates, falling back to DEFAULT_RATES."""
-    path = path or os.environ.get("BEDROCK_RATES_FILE")
-    rates = dict(DEFAULT_RATES)
-    if path:
-        rates.update(json.loads(Path(path).read_text(encoding="utf-8")))
-    return rates
+# --------------------------------------------------------------------------
+# The tools. Two halves: the function, and the schema the model reads.
+# --------------------------------------------------------------------------
+
+def check_stock(sku: str) -> dict:
+    print(f"      [tool] check_stock({sku!r})")
+    return {"sku": sku, "units": 12, "reorder_level": 50}
 
 
-@dataclass(frozen=True)
-class Usage:
-    """Token counts for one or more calls.
+def supplier_lead_time(sku: str) -> dict:
+    print(f"      [tool] supplier_lead_time({sku!r})")
+    return {"sku": sku, "lead_time_days": 14}
 
-    Cached prompt tokens are not reported in ``input``; they appear under
-    ``cache_write`` on the first call and ``cache_read`` thereafter. Cost must
-    be computed from all four fields.
+
+REGISTRY = {"check_stock": check_stock, "supplier_lead_time": supplier_lead_time}
+
+# Written by hand here. In §2 the @tool decorator generated this from the
+# function name, the docstring and the type hints.
+TOOL_SPECS = [
+    {
+        "name": "check_stock",
+        "description": "Units currently in stock for one SKU, and its reorder level.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"sku": {"type": "string", "description": "e.g. SKU-77"}},
+            "required": ["sku"],
+        },
+    },
+    {
+        "name": "supplier_lead_time",
+        "description": "Days between placing an order for a SKU and receiving it.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"sku": {"type": "string", "description": "e.g. SKU-77"}},
+            "required": ["sku"],
+        },
+    },
+]
+
+
+def call_model(client, messages: list) -> dict:
+    """One InvokeModel call. Returns the parsed envelope."""
+    body = json.dumps({
+        "anthropic_version": "bedrock-2023-05-31",
+        "max_tokens": 1024,
+        "temperature": 0,
+        "tools": TOOL_SPECS,
+        "messages": messages,
+    })
+    response = client.invoke_model(modelId=MODEL_ID, body=body)
+    return json.loads(response["body"].read())      # the stream reads once only
+
+
+def run_tool(block: dict) -> dict:
+    """Execute one tool_use block and build the tool_result that answers it.
+
+    The id must match, and a result is required for every tool_use in the
+    reply. A failure is reported here as content, not raised: the model reads
+    it and can correct the call on the next step.
     """
+    fn = REGISTRY.get(block["name"])
+    if fn is None:
+        output = {"error": f"no tool named {block['name']}. "
+                           f"Available: {', '.join(REGISTRY)}."}
+    else:
+        try:
+            output = fn(**block["input"])
+        except Exception as exc:                     # noqa: BLE001
+            output = {"error": f"{block['name']} failed: {exc}"}
 
-    input: int = 0
-    output: int = 0
-    cache_write: int = 0
-    cache_read: int = 0
-
-    @classmethod
-    def from_payload(cls, usage: Mapping[str, Any] | None) -> "Usage":
-        usage = usage or {}
-        return cls(
-            input=usage.get("input_tokens", 0),
-            output=usage.get("output_tokens", 0),
-            cache_write=usage.get("cache_creation_input_tokens", 0),
-            cache_read=usage.get("cache_read_input_tokens", 0),
-        )
-
-    @property
-    def billed_input(self) -> int:
-        return self.input + self.cache_write + self.cache_read
-
-    def cost(self, rates: Mapping[str, float] | None = None) -> float:
-        rates = rates or DEFAULT_RATES
-        return sum(
-            getattr(self, field) * rates.get(field, 0.0) for field in TOKEN_FIELDS
-        ) / 1_000_000
-
-    def __add__(self, other: "Usage") -> "Usage":
-        return Usage(*(getattr(self, f) + getattr(other, f) for f in TOKEN_FIELDS))
-
-    def as_dict(self) -> dict[str, int]:
-        return {field: getattr(self, field) for field in TOKEN_FIELDS}
-
-
-class BedrockClient:
-    """Bedrock runtime client that accumulates token usage across calls."""
-
-    def __init__(
-        self,
-        model_id: str | None = None,
-        region: str = DEFAULT_REGION,
-        rates: Mapping[str, float] | None = None,
-        client: Any = None,
-    ) -> None:
-        self.model_id = model_id or os.environ.get("BEDROCK_MODEL_ID")
-        if not self.model_id:
-            raise ValueError("model_id is required (set BEDROCK_MODEL_ID)")
-        self.rates = dict(rates) if rates else load_rates()
-        self._client = client or boto3.client("bedrock-runtime", region_name=region)
-        self.totals = Usage()
-        self.last_usage = Usage()
-        self.calls = 0
-
-    # -- request construction ------------------------------------------------
-
-    def _body(
-        self,
-        prompt: str,
-        system: str | None,
-        max_tokens: int,
-        temperature: float,
-        cache_system: bool,
-    ) -> str:
-        body: dict[str, Any] = {
-            "anthropic_version": ANTHROPIC_VERSION,
-            "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": max_tokens,
-            "temperature": temperature,
-        }
-        if system:
-            block: dict[str, Any] = {"type": "text", "text": system}
-            if cache_system:
-                block["cache_control"] = {"type": "ephemeral"}
-            body["system"] = [block]
-        return json.dumps(body)
-
-    def _record(self, usage: Usage) -> Usage:
-        self.totals += usage
-        self.calls += 1
-        LOGGER.info(
-            "bedrock call model=%s tokens=%s cost_usd=%.6f",
-            self.model_id,
-            usage.as_dict(),
-            usage.cost(self.rates),
-        )
-        return usage
-
-    # -- calls ---------------------------------------------------------------
-
-    def invoke(
-        self,
-        prompt: str,
-        system: str | None = None,
-        max_tokens: int = 1024,
-        temperature: float = 0.0,
-        cache_system: bool = False,
-    ) -> tuple[str, Usage]:
-        """Send a single prompt and return (text, usage)."""
-        response = self._client.invoke_model(
-            modelId=self.model_id,
-            body=self._body(prompt, system, max_tokens, temperature, cache_system),
-        )
-        payload = json.loads(response["body"].read())
-        text = "".join(
-            block.get("text", "")
-            for block in payload.get("content", [])
-            if block.get("type") == "text"
-        )
-        return text, self._record(Usage.from_payload(payload.get("usage")))
-
-    def stream(
-        self,
-        prompt: str,
-        system: str | None = None,
-        max_tokens: int = 1024,
-        temperature: float = 0.0,
-        cache_system: bool = False,
-    ) -> Iterator[str]:
-        """Yield text deltas. Usage is recorded once the stream is exhausted
-        and is available as ``client.last_usage``."""
-        response = self._client.invoke_model_with_response_stream(
-            modelId=self.model_id,
-            body=self._body(prompt, system, max_tokens, temperature, cache_system),
-        )
-        usage = Usage()
-        for event in response["body"]:
-            chunk = json.loads(event["chunk"]["bytes"])
-            if chunk["type"] == "content_block_delta":
-                yield chunk["delta"].get("text", "")
-            elif chunk["type"] == "message_delta":
-                usage = Usage.from_payload(chunk.get("usage"))
-        self.last_usage = self._record(usage)
-
-    # -- reporting -----------------------------------------------------------
-
-    def report(self) -> dict[str, Any]:
-        return {
-            "model_id": self.model_id,
-            "calls": self.calls,
-            "tokens": self.totals.as_dict(),
-            "cost_usd": round(self.totals.cost(self.rates), 6),
-        }
+    return {
+        "type": "tool_result",
+        "tool_use_id": block["id"],
+        "content": [{"type": "text", "text": json.dumps(output)}],
+    }
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Invoke a Bedrock model and report cost.")
-    parser.add_argument("prompt")
-    parser.add_argument("--model-id", default=None)
-    parser.add_argument("--region", default=DEFAULT_REGION)
-    parser.add_argument("--system", default=None)
-    parser.add_argument("--max-tokens", type=int, default=1024)
-    parser.add_argument("--stream", action="store_true")
-    args = parser.parse_args()
+    client = bedrock_runtime()
+    banner(f"ReAct against {MODEL_ID}")
+    print(f"  question: {QUESTION}\n")
 
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-    client = BedrockClient(model_id=args.model_id, region=args.region)
+    messages = [{"role": "user", "content": QUESTION}]
 
-    if args.stream:
-        for delta in client.stream(args.prompt, args.system, args.max_tokens):
-            print(delta, end="", flush=True)
-        print()
-    else:
-        text, _ = client.invoke(args.prompt, args.system, args.max_tokens)
-        print(text)
+    for step in range(1, MAX_STEPS + 1):
+        print(f"  step {step}")
+        reply = call_model(client, messages)
+        report_usage(f"step {step}", reply.get("usage", {}))
 
-    print(json.dumps(client.report(), indent=2))
+        # 1. The reply goes back in, whole. content is a list of blocks.
+        messages.append({"role": "assistant", "content": reply["content"]})
+
+        # 2. stop_reason decides the loop, not the text.
+        if reply["stop_reason"] != "tool_use":
+            answer = "".join(b.get("text", "") for b in reply["content"]
+                             if b["type"] == "text")
+            print(f"\n  answer: {' '.join(answer.split())}")
+            print(f"  finished after {step} step(s), stop_reason={reply['stop_reason']}")
+            return
+
+        # 3. Every tool_use block needs a tool_result, and they travel
+        #    together in ONE user message.
+        results = [run_tool(b) for b in reply["content"] if b["type"] == "tool_use"]
+        messages.append({"role": "user", "content": results})
+
+    print(f"\n  stopped at MAX_STEPS = {MAX_STEPS} without an answer.")
+    print("  The cap is the only thing that guarantees this loop terminates.")
 
 
 if __name__ == "__main__":
