@@ -52,7 +52,7 @@ BY_NAME = {t.name: t for t in TOOLS}
 # it has to work out what to do next by itself, every time.
 # --------------------------------------------------------------------------
 
-banner("NO PLAN — each step is decided from the transcript so far")
+banner("NO PLAN")
 
 model = chat_model(temperature=0).bind_tools(TOOLS)
 messages = [

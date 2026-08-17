@@ -52,9 +52,9 @@ class Plan(BaseModel):
 # 1. PLAN.  One call. No tool runs here.
 # --------------------------------------------------------------------------
 
-banner("PLAN — one model call, before anything runs")
+banner("PLAN")
 
-planner = chat_model(temperature=0).with_structured_output(Plan)
+planner = chat_model(temperature=0).with_structured_output(Plan) # no tools
 steps = planner.invoke([
     SystemMessage("Break the goal into 2-4 steps, each doable with one tool call."),
     HumanMessage(GOAL),
@@ -69,9 +69,9 @@ for i, step in enumerate(steps, 1):
 #    so each step is the only instruction it has.
 # --------------------------------------------------------------------------
 
-banner("EXECUTE — one step at a time, in order")
+banner("EXECUTE")
 
-actor = chat_model(temperature=0).bind_tools(TOOLS)
+actor = chat_model(temperature=0).bind_tools(TOOLS) ## TOOLS
 messages = [SystemMessage(
     "Do only the step you are given. Call at most one tool. "
     "Do not anticipate later steps. "
@@ -82,8 +82,8 @@ for i, step in enumerate(steps, 1):
     print(f"\n  step {i}: {step}")
     messages.append(HumanMessage(step))
 
-    reply = actor.invoke(messages)
-    messages.append(reply)
+    reply = actor.invoke(messages) # one plan string becomes one user turn
+    messages.append(reply) # actor sees tools, picks one
 
     # Keep going while the model is still asking for tools. A single
     # re-invoke is not enough: the reply after a tool result can itself be
