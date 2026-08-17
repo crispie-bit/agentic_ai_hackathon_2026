@@ -1,8 +1,9 @@
 # §2 — Agentic AI Basics  (slides 15–25)
 
-Six files, easiest first. §1 established the single model call; this section
-adds the four things that turn a call into an agent — **tools, memory,
-reasoning, action** — and the loop that coordinates them.
+Easiest first. §1 established the single model call; this section adds the four
+things that turn a call into an agent — **tools, memory, reasoning, action** —
+the loop that coordinates them, and then the prompting that decides what the
+loop actually does.
 
 Nothing here is a framework. Every loop is a `for` you can read in one screen.
 §3 rewrites the last one against the raw Bedrock Converse API, and §4 hands it
@@ -14,8 +15,15 @@ uv run section_2_agentic_ai_basic/00_anatomy_of_an_agent.py   # no key needed
 uv run section_2_agentic_ai_basic/01_memory.py
 uv run section_2_agentic_ai_basic/02_tools.py
 uv run section_2_agentic_ai_basic/03_tool_composition.py
+uv run section_2_agentic_ai_basic/04a_planning_decomposition.py
+uv run section_2_agentic_ai_basic/04b_planning_reactive.py
 uv run section_2_agentic_ai_basic/04_planning.py
 uv run section_2_agentic_ai_basic/05_agent_lab.py             # the lab
+uv run section_2_agentic_ai_basic/06a_zero_shot.py
+uv run section_2_agentic_ai_basic/06b_few_shot.py
+uv run section_2_agentic_ai_basic/06c_cot.py
+uv run section_2_agentic_ai_basic/06d_rag.py                  # the second lab
+uv run section_2_agentic_ai_basic/prompt_engineering.py
 ```
 
 | | File | Slides | Difficulty | Format |
@@ -24,11 +32,19 @@ uv run section_2_agentic_ai_basic/05_agent_lab.py             # the lab
 | 1 | `01_memory.py` | 22 | ⬤⬤◯◯◯ | read & run |
 | 2 | `02_tools.py` | 23 | ⬤⬤◯◯◯ | read & run |
 | 3 | `03_tool_composition.py` | 24 | ⬤⬤⬤◯◯ | read & run |
+| 4a | `04a_planning_decomposition.py` | 18, 19 | ⬤⬤◯◯◯ | read & run |
+| 4b | `04b_planning_reactive.py` | 20 | ⬤⬤◯◯◯ | read & run |
 | 4 | `04_planning.py` | 18, 19, 20, 21 | ⬤⬤⬤⬤◯ | read & run |
 | 5 | `05_agent_lab.py` | 25 | ⬤⬤⬤⬤⬤ | **hands-on**, 4 TODOs |
+| 6a | `06a_zero_shot.py` | — | ⬤◯◯◯◯ | read & run |
+| 6b | `06b_few_shot.py` | — | ⬤⬤◯◯◯ | read & run |
+| 6c | `06c_cot.py` | — | ⬤⬤◯◯◯ | read & run |
+| 6d | `06d_rag.py` | — | ⬤⬤⬤⬤◯ | **hands-on**, 2 TODOs |
+| 6 | `prompt_engineering.py` | — | ⬤⬤⬤◯◯ | read & run, then 4 TODOs |
 
 Files 0–4 you run and read. File 5 you write, and it assembles every piece
-from the ones before it.
+from the ones before it. The 06 files come after, because prompting only
+becomes interesting once you have seen a tool call, a transcript and a loop.
 
 > The slide order puts planning (18–21) before memory and tools. The files
 > reorder it, because planning is much easier to follow once you have seen a
@@ -95,6 +111,16 @@ Ends on the half nobody demos — what happens when the arguments are wrong.
 halves the wall clock and changes the token bill by exactly zero. The
 conditional branch is a plain `if`, which is the recommendation.
 
+**04a · Decomposition, on its own** — the smallest possible version. One model
+call produces the whole step list before anything runs; the rest is a `for`
+loop over that list. The output is in two halves, `PLAN` then `EXECUTE`, so the
+split is impossible to miss.
+
+**04b · Reactive, on its own** — same goal, same tools, no plan. Each step is
+chosen from the transcript as it stands, and the number of steps is not known
+until the run ends. Read it directly after 04a; the diff between the two files
+*is* the lesson.
+
 **04 · Planning** — the same goal three ways, with a comparison table at the
 end. Decomposition plans first and never looks back. Reactive never plans.
 Hierarchical does both, and is what production agents converge on. Watch the
@@ -111,10 +137,51 @@ stops it. Fix them in order and re-run between each.
 - **TODO 4** report *why* the loop ended — "finished" and "was stopped" both
   return text, and only one of them is an answer
 
-`05_agent_lab_solution.py` is the finished version. Read it after you have
-made each TODO fail at least once — it also adds the two things the TODOs
-leave out: a try/except that turns a crash into an observation, and a check
-for a tool name that does not exist.
+The two things the TODOs leave out are worth adding yourself once it runs: a
+try/except that turns a crash into an observation, and a check for a tool name
+that does not exist.
+
+## 06 · Prompting — four techniques, then the agent version
+
+The first four files are one technique each, on the same shape of task, so you
+can diff them against one another:
+
+**06a · Zero-shot** — an instruction and nothing else. Four support tickets,
+one word back each. The baseline everything below is measured against.
+
+**06b · Few-shot** — the *identical* instruction plus three fake conversation
+turns you wrote both sides of. The examples teach a convention the instruction
+never states (anything about logging in is `account`, not `technical`), and the
+classification changes without a word of the instruction changing.
+
+**06c · Chain of thought** — two arithmetic word problems with known answers,
+asked twice: answer-only, then "show each calculation, end with
+`ANSWER: <number>`". The parsed number is printed against the expected one, so
+the accuracy difference is on screen rather than asserted. The forced final
+line is the part that matters in production — reasoning you cannot parse is
+reasoning you cannot use.
+
+**06d · RAG** *(hands-on, 2 TODOs)* — knowledge instead of conversation. The
+retrieval half is written from scratch — sentence chunking, a bag-of-words
+vector, cosine similarity — so no vector DB or embedding model hides anything;
+only generation is a real API call. Parts A–D run in order: retrieval alone,
+same question with and without context, the full loop, then the failure case
+where retrieval finds nothing useful. **TODO 1** changes `TOP_K`, **TODO 2**
+changes `MIN_SCORE` — the two knobs that decide what the model is allowed to
+see.
+
+**prompt_engineering.py** — the same lesson, but inside an agent, where a
+prompt is not only what you ask:
+
+| the tool docstring | decides **which** tool gets called |
+|---|---|
+| the system prompt | decides **how much** the model does at once |
+| the error string | decides **whether** the agent can recover |
+| the examples | decide **what form** the answer takes |
+
+Four experiments, four tasks, each run twice — working, then broken by a
+one-line change — so the difference is visible rather than described. Four
+`TODO(student)` blocks at the bottom ask you to break them yourself.
 
 ## Things worth arguing about in the room
 
