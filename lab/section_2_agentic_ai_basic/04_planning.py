@@ -59,6 +59,15 @@ TOOLS = [check_stock, supplier_lead_time, sales_velocity]
 BY_NAME = {t.name: t for t in TOOLS}
 SYSTEM = "You answer stock questions using the tools. Be terse."
 
+# Used when a plan is driving. Without this the model reads ahead, finishes the
+# whole goal on step 1, and every later step becomes a no-op — the plan gets
+# printed and then ignored.
+SYSTEM_STEPWISE = (
+    "You answer stock questions using the tools. Be terse. "
+    "Do only the step you are given. Do not anticipate later steps, and do "
+    "not answer the overall question until you are asked to."
+)
+
 
 class Plan(BaseModel):
     """The planner's output shape. A plan is just text until something parses it."""
@@ -127,7 +136,9 @@ def decomposition() -> tuple[int, int, float]:
         print(f"    {i}. {s}")
 
     # -- everything after this is iteration over a list -------------------
-    messages = [SystemMessage(SYSTEM), HumanMessage(GOAL)]
+    # The actor never sees GOAL. Each step is its only instruction, which is
+    # what makes the plan binding rather than decorative.
+    messages = [SystemMessage(SYSTEM_STEPWISE)]
     for i, step in enumerate(steps, 1):
         print(f"\n  executing step {i}")
         messages.append(HumanMessage(f"Step {i}: {step}"))
@@ -186,7 +197,7 @@ def hierarchical() -> tuple[int, int, float]:
     for i, s in enumerate(plan, 1):
         print(f"    {i}. {s}")
 
-    messages = [SystemMessage(SYSTEM), HumanMessage(GOAL)]
+    messages = [SystemMessage(SYSTEM_STEPWISE)]
 
     i = 0
     while i < len(plan):
@@ -194,8 +205,9 @@ def hierarchical() -> tuple[int, int, float]:
         print(f"\n  phase {i + 1}: {step}")
         messages.append(HumanMessage(f"Work on this phase only: {step}"))
 
-        # INNER: reactive, discarded at the step boundary. Two loops, two
-        # lifetimes — that is the entire idea.
+        # INNER: reactive, with its own step budget. max_steps resets at
+        # every phase; the transcript does NOT — it carries through the whole
+        # run. Two loops, two bounds. That is the entire idea.
         messages = react(messages, actor, max_steps=3)
 
         if contradicts(messages[-1], plan[i + 1:]):

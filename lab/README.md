@@ -7,8 +7,23 @@ runs on Groq's free tier. Day 2 moves the same code to Bedrock.
 cd agentic_teaching/lab
 uv sync                              # Session 1 only, ~20s
 echo 'GROQ_API_KEY=gsk_...' > .env   # see "Keys" below
-uv run section_1_foundation/00_check_groq.py
+uv run 00_check_env.py               # the machine — no key needed
+uv run section_1_foundation/00_check_groq.py   # the key — once you have one
 ```
+
+Two checks, deliberately, because they fail at different times.
+
+`00_check_env.py` runs in four stages — **Python, uv, libraries, keys** — and
+makes no network call, so it works on conference wifi before anyone has signed
+up for anything. Only the first three stages can fail it: not having a Groq key
+yet is the normal state before the session, so stage 4 reports `[next]` and the
+run still exits 0. It catches the wrong Python, a missing `uv sync`, and
+`python x.py` used instead of `uv run x.py` — which is the one that otherwise
+looks like six missing libraries.
+
+Once that is green and you have a key, `00_check_groq.py` proves the key
+actually reaches a model. Run them in that order: until the machine is right,
+a failure there tells you nothing.
 
 | | Folder | Covers | Runs on |
 |---|---|---|---|
@@ -67,11 +82,31 @@ that line.
 ## Installing
 
 ```bash
-uv sync                      # §1, §2, §4 on Groq
-uv sync --extra aws          # + §3, §4, §5, §6 on Bedrock
-uv sync --extra takehome     # + deepagents, Agent SDK, PDF tooling
-uv sync --extra agentcore    # + the AgentCore deploy toolkit
+uv sync                      # §1, §2, §4 on Groq — Day 1 needs only this
+uv sync --all-extras         # everything, all six sections
 ```
+
+**These do not stack.** `uv sync` is declarative: it makes the venv match
+*exactly* what you name and uninstalls the rest. So this sequence —
+
+```bash
+uv sync --extra aws          # boto3, langchain-aws     installed
+uv sync --extra takehome     # ...and now UNINSTALLED again
+```
+
+leaves you without boto3, and §3–§6 fail with an `ImportError` on Day 2 after
+a command that looked like it worked. To take a subset, name every extra you
+want in one command:
+
+```bash
+uv sync --extra aws --extra takehome --extra agentcore
+```
+
+| Extra | Adds | Needed by |
+|---|---|---|
+| `aws` | boto3, langchain-aws | §3, §4, §5, §6 on Bedrock |
+| `takehome` | deepagents, Agent SDK, PDF tooling | §5 take-home, PDF labs |
+| `agentcore` | the AgentCore deploy toolkit | §6 deployment |
 
 `requirements.txt` mirrors this for pip users. Two things pip cannot install:
 

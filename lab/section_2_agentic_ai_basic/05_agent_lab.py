@@ -1,42 +1,26 @@
 """
-§2 · 05 — LAB: build the agent.  (slide 25)
+§2 · 05 — LAB SOLUTION.  (slide 25)
 
     uv run section_2_agentic_ai_basic/05_agent_lab.py
 
-Everything up to here you read. This one you write.
+The four TODOs from 05_agent_lab.py, filled in. Read this AFTER you have made
+each one fail.
 
-Four TODOs, one line or so each, in `run_agent` below. The file runs before
-you touch it — it just gets the answer wrong in an instructive way. Re-run
-between each TODO and read what changed.
-
-    TODO 1   append the reply, so the model can see its own request
-    TODO 2   stop when no tool was requested
-    TODO 3   execute the tool and append the result with its id
-    TODO 4   report WHY the loop ended
-
-Stuck? `05_agent_lab_solution.py` next to this file is the finished version.
-Read it after you have made each TODO fail at least once.
-
-Provider comes from lab/.env — this is provider-agnostic, and §3 rewrites the
-same loop against the raw Bedrock Converse API.
+The whole loop is 20 lines, and slide 25 is the same 20 lines written against
+the raw Bedrock Converse API instead of LangChain — which is what §3 does. The
+shape does not change; only the dict keys do.
 """
 
 import json
 
 import _bootstrap  # noqa: F401
 
-# ToolMessage looks unused until you fill in TODO 3. It is imported for you.
-from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage  # noqa: F401
+from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tools import tool
 
 from _common import banner, chat_model, model_label, report_usage
 
-MAX_STEPS = 6           # the cap. Slide 25: it is the safety net, not a detail.
-
-
-# --------------------------------------------------------------------------
-# The tool layer. Already written — do not change it yet.
-# --------------------------------------------------------------------------
+MAX_STEPS = 6
 
 INVENTORY = {"SKU-77": 12, "SKU-14": 240, "SKU-93": 0}
 REORDER_LEVEL = 50
@@ -75,65 +59,38 @@ SYSTEM = ("You manage inventory. Use the tools to check facts before you act. "
           "Finish with one sentence stating what you did and why.")
 
 
-# ==========================================================================
-# THE LOOP — this is the part you write.
-# ==========================================================================
-
 def run_agent(goal: str) -> dict:
     model = chat_model(temperature=0).bind_tools(TOOLS)
 
-    # MEMORY: the transcript. Everything the agent knows lives in this list.
     messages = [SystemMessage(SYSTEM), HumanMessage(goal)]
     stopped_because = "step cap"
 
     for step in range(1, MAX_STEPS + 1):
         print(f"\n  ---------- step {step} ----------")
 
-        reply = model.invoke(messages)               # PERCEPTION + REASONING + PLANNING
+        reply = model.invoke(messages)
         report_usage(f"step {step}", reply.usage_metadata)
 
-        # ------------------------------------------------------------------
-        # TODO 1 — append `reply` to `messages`.
-        #
-        # Without this, the model never sees its own tool request, so on the
-        # next turn it asks for the same thing again. Run the file as-is
-        # first and watch it call check_stock over and over until the cap.
-        #
-        #   messages.append(reply)
-        # ------------------------------------------------------------------
+        messages.append(reply)                                    # TODO 1
 
-        # ------------------------------------------------------------------
-        # TODO 2 — if the model requested no tools, it has answered. Stop.
-        #
-        # `reply.tool_calls` is a list, empty when the model replied with
-        # text. This is the NORMAL exit; the step cap is the abnormal one.
-        #
-        #   if not reply.tool_calls:
-        #       stopped_because = "model answered"
-        #       break
-        # ------------------------------------------------------------------
+        if not reply.tool_calls:                                  # TODO 2
+            stopped_because = "model answered"
+            break
 
-        # ------------------------------------------------------------------
-        # TODO 3 — ACTION and OBSERVATION. For each requested call:
-        #   a. look the function up in BY_NAME by call["name"]
-        #   b. run it with call["args"]
-        #   c. append a ToolMessage with the result AND call["id"]
-        #
-        # The id is not decoration. It pairs the result with the request, and
-        # the provider rejects the next call without it. Try dropping it once.
-        #
-        #   for call in reply.tool_calls:
-        #       result = BY_NAME[call["name"]].invoke(call["args"])
-        #       messages.append(ToolMessage(result, tool_call_id=call["id"]))
-        # ------------------------------------------------------------------
+        for call in reply.tool_calls:                             # TODO 3
+            fn = BY_NAME.get(call["name"])
+            if fn is None:
+                # The model can name a tool that does not exist. Answer in a
+                # form it can read and recover from, rather than raising.
+                result = f"No tool named {call['name']}. Available: {', '.join(BY_NAME)}."
+            else:
+                try:
+                    result = fn.invoke(call["args"])
+                except Exception as exc:                # bad args reach here
+                    result = f"{call['name']} failed: {exc}"
+            messages.append(ToolMessage(result, tool_call_id=call["id"]))
 
-    # ----------------------------------------------------------------------
-    # TODO 4 — return `stopped_because` alongside the answer.
-    #
-    # An agent that hit the cap and one that finished look identical from
-    # the outside: both return text. Only one of them is trustworthy.
-    # ----------------------------------------------------------------------
-    return {
+    return {                                                      # TODO 4
         "answer": messages[-1].content if hasattr(messages[-1], "content") else "",
         "messages": messages,
         "stopped_because": stopped_because,
@@ -152,7 +109,7 @@ if __name__ == "__main__":
     out = run_agent(goal)
 
     banner("RESULT")
-    print(f"  answer          : {out['answer'].strip() or '(none — the loop never got one)'}")
+    print(f"  answer          : {out['answer'].strip()}")
     print(f"  stopped because : {out['stopped_because']}")
     print(f"  transcript      : {len(out['messages'])} messages")
 

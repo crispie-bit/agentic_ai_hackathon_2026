@@ -1,41 +1,33 @@
 """
-§4 · 01 — LAB: build the graph.  (slides 44-46)   ** YOU WRITE THIS ONE **
+§4 · 01 — SOLUTION. The finished graph, runnable.
 
-    uv run section_4_langgraph/01_graph_lab.py
+    uv run section_4_langgraph/01_graph_lab_solution.py
 
-Section 3 ended with an agent that was a `for` loop. Nothing about the model
-call changes here. LangGraph just gives that loop a runtime: named steps,
-explicit routing, and one state object passed between them.
+All three TODOs completed. Read 01_graph_lab.py first and try them; this is
+here to run when you are stuck, or to diff against your own version:
 
-    START -> generate -> should_continue -> evaluate -> (back to generate)
-                              |
-                              +-> END
+    diff section_4_langgraph/01_graph_lab.py section_4_langgraph/01_graph_lab_solution.py
 
-Four things, and that is the whole library:
+Each answer is marked with  # <-- TODO n  below.
 
-    State     the shared object every node reads and writes
-    Nodes     one unit of work: a model call, a tool, a check
-    Edges     which node runs next
-    Runtime   checkpointing, streaming, retries, replay (compile() gives you this)
+WHAT THE THREE TODOs WERE ABOUT
 
-# ======================================================================
-# TODO(student) 1 — the graph is missing its second node. In build(),
-#   register `evaluate` with add_node, then add the edge that sends it
-#   back to `generate`. Two lines. Forgetting the EDGE is the usual
-#   mistake: the node exists, and simply never runs.
-#
-# TODO(student) 2 — should_continue() currently never stops. Add the
-#   bound: if state["rounds"] >= MAX_ROUNDS, return "end". Run it before
-#   you fix it if you like — the recursion limit will stop it for you,
-#   which is not a plan.
-#
-# TODO(student) 3 — delete `add_messages` from the messages annotation so
-#   it reads `messages: list`. Run again and watch the history get
-#   clobbered: each node's return REPLACES messages instead of appending.
-#   That is what a reducer is for. Put it back afterwards.
-# ======================================================================
+  1. add_node AND add_edge are separate calls. Miss the edge and the node
+     never runs — no error, no warning, just a step that silently does not
+     happen. That is the most common LangGraph bug. (Miss the NODE, as the
+     lab file does, and it fails loudly at compile() instead. Loud is better.)
 
-Worked answers: 01_graph_lab_solution.py (runnable — diff it against yours)
+  2. `evaluate -> generate` is a back-edge, and a back-edge runs forever on
+     its own. Two things end this loop, and they differ in kind:
+         the reviewer says ACCEPT   a JUDGEMENT, made by a model
+         rounds >= MAX_ROUNDS       a GUARANTEE, made by you
+     Never rely on the first. A stricter critic, a worse model, an ambiguous
+     task — and ACCEPT never comes.
+
+  3. A reducer is a function (old, new) -> merged attached to one state key.
+     add_messages appends; without it, every node's return REPLACES messages.
+     You need your own reducer the moment two nodes can write one key in the
+     same step, because otherwise the last writer silently wins.
 """
 
 from typing import Annotated, TypedDict
@@ -55,31 +47,13 @@ TICKET = ("Ticket #4412: the office printer on level 3 has been offline since "
           "deck before Thursday.")
 
 
-# --------------------------------------------------------------------------
-# STATE — a TypedDict every node reads and writes.  (slide 45)
-#
-# The comment on each field says WHICH NODE fills it in. That convention costs
-# nothing and is worth more than a diagram: state is the contract between
-# nodes, and this is where the contract is written down.
-# --------------------------------------------------------------------------
-
 class AgentState(TypedDict):
-    # Annotated with a reducer, so nodes APPEND to history instead of
-    # replacing it. Remove the annotation and see TODO 3.
-    messages: Annotated[list, add_messages]
+    messages: Annotated[list, add_messages]   # <-- TODO 3: the reducer appends
     ticket: str        # seeded by the caller
     draft: str         # written by generate
     critique: str      # written by evaluate
     rounds: int        # incremented by generate; this is what bounds the loop
 
-
-# --------------------------------------------------------------------------
-# NODES — state in, PARTIAL update out.
-#
-# A node returns only the keys it changed. LangGraph merges that dict into the
-# shared state before the next node runs. Returning the whole state works too,
-# and is how people accidentally overwrite each other's fields.
-# --------------------------------------------------------------------------
 
 def generate(state: AgentState) -> dict:
     """Draft a reply. If there is a critique, address it."""
@@ -94,7 +68,7 @@ def generate(state: AgentState) -> dict:
     n = state.get("rounds", 0) + 1
     print(f"  [generate {n}] {reply.content.strip()[:90]}...")
 
-    return {                                   # <- only what changed
+    return {                                   # only what changed
         "draft": reply.content,
         "rounds": n,
         "messages": [AIMessage(content=reply.content)],
@@ -112,73 +86,47 @@ def evaluate(state: AgentState) -> dict:
 
     verdict = reply.content.strip()
     print(f"  [evaluate]   {verdict[:90]}")
-    # An empty critique is the signal that we are done.
     return {"critique": "" if verdict.upper().startswith("ACCEPT") else verdict}
 
 
-# --------------------------------------------------------------------------
-# ROUTER — a PURE function of state that returns a label.  (slide 46)
-#
-# No model call, no side effects. That is what makes your control flow
-# deterministic and testable without an API key.
-# --------------------------------------------------------------------------
-
 def should_continue(state: AgentState) -> str:
+    """A PURE function of state. No model call, no side effects — so the whole
+    control flow is testable without an API key."""
     if not state.get("critique"):
-        return "end"                     # the reviewer said ACCEPT
+        return "end"                                    # reviewer said ACCEPT
 
-    # TODO 2: the bound. Without it the back-edge runs forever.
-    #     if state["rounds"] >= MAX_ROUNDS:
-    #         print(f"  [router]     hit MAX_ROUNDS={MAX_ROUNDS}, stopping")
-    #         return "end"
+    if state["rounds"] >= MAX_ROUNDS:                   # <-- TODO 2: the bound
+        print(f"  [router]     hit MAX_ROUNDS={MAX_ROUNDS}, stopping")
+        return "end"
 
     return "continue"
 
-
-# --------------------------------------------------------------------------
-# ASSEMBLY — four calls and a compile.  (slide 46)
-# --------------------------------------------------------------------------
 
 def build():
     builder = StateGraph(AgentState)
 
     builder.add_node("generate", generate)
-    # TODO 1a: builder.add_node("evaluate", evaluate)
+    builder.add_node("evaluate", evaluate)              # <-- TODO 1a
 
-    builder.add_edge(START, "generate")              # entry point
-    # TODO 1b: builder.add_edge("generate", "evaluate")   # always review
+    builder.add_edge(START, "generate")                 # entry point
+    builder.add_edge("generate", "evaluate")            # <-- TODO 1b, always review
 
-    # The one conditional edge. Note it hangs off EVALUATE, not generate: the
-    # router reads `critique`, and evaluate is what writes it. Hang it off
-    # generate and it fires before anything has been reviewed — the run goes
-    # straight to END and evaluate never executes at all.
+    # The one conditional edge. It hangs off EVALUATE, not generate: the
+    # router reads `critique`, and evaluate is what writes it. Put the
+    # condition on generate instead and it fires before anything has been
+    # reviewed — the router sends the run straight to END and evaluate never
+    # executes at all.
     builder.add_conditional_edges(
         "evaluate", should_continue,
-        {"continue": "generate", "end": END},        # "continue" = redraft
+        {"continue": "generate", "end": END},           # "continue" = redraft
     )
 
-    # compile() is what turns this into a runnable — and what gives you
-    # streaming, checkpointing and replay for free.
     return builder.compile()
 
 
 def main() -> None:
     print(f"model: {model_label()}")
-
-    try:
-        app = build()
-    except ValueError as exc:
-        # LangGraph validates the wiring at compile() time, before a single
-        # model call. Read the message — it names the node it could not find.
-        raise SystemExit(
-            f"\nThe graph did not compile:\n  {exc}\n\n"
-            "  That is TODO 1. The graph refers to a node called 'evaluate',\n"
-            "  but nothing registered it. Add both lines in build():\n"
-            "      builder.add_node(\"evaluate\", evaluate)\n"
-            "      builder.add_edge(\"generate\", \"evaluate\")\n\n"
-            "  Worth noticing: this failed at compile time, not at run time.\n"
-            "  A graph checks its own wiring before it costs you a token."
-        ) from exc
+    app = build()
 
     banner("THE GRAPH")
     try:
@@ -189,8 +137,6 @@ def main() -> None:
     banner("RUNNING")
     final = app.invoke({
         "ticket": TICKET,
-        # Seed the history with the user's turn too, or a one-round run leaves
-        # exactly one message and TODO 3 shows no difference at all.
         "messages": [HumanMessage(content=TICKET)],
         "rounds": 0,
     })
@@ -201,9 +147,9 @@ def main() -> None:
     expected = 1 + final["rounds"]
     print(f"  messages: {kept}   (1 ticket + {final['rounds']} draft(s) "
           f"= {expected} expected)")
-    if kept < expected:
-        print("            ^ history was CLOBBERED — that is TODO 3, and it is "
-              "what a reducer prevents")
+    if kept == expected:
+        print("            ^ the reducer APPENDED. Delete add_messages in the")
+        print("              state above and this drops to 1 — that was TODO 3.")
 
     banner("FINAL REPLY")
     print(final["draft"])
