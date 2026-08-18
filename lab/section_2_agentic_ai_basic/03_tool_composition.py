@@ -1,9 +1,9 @@
 """
-§2 · 03 — Tool composition.  (slide 24)
+§2 · 03 — Tool composition.  (slide 22)
 
     uv run section_2_agentic_ai_basic/03_tool_composition.py
 
-One tool call is rarely enough. Slide 24: three shapes account for nearly all
+One tool call is rarely enough. Slide 22: three shapes account for nearly all
 agent behaviour, and none of them is something you declare. They emerge at run
 time from what the model asks for.
 

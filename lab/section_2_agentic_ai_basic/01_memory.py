@@ -1,5 +1,5 @@
 """
-§2 · 01 — Memory: short term and long term.  (slide 22)
+§2 · 01 — Memory: short term and long term.  (slide 21)
 
     uv run section_2_agentic_ai_basic/01_memory.py
 
@@ -10,7 +10,7 @@ lab/.env — nothing in this file names one:
     # LLM_PROVIDER=bedrock     <- commented out: runs on Groq's free tier
     LLM_PROVIDER=bedrock       <- uncommented: same file, same output, Bedrock
 
-Slide 22, in one line: the model retains nothing between calls.
+Slide 21, in one line: the model retains nothing between calls.
 
     SHORT TERM   the messages list, resent IN FULL on every request
     LONG TERM    a store outside the model, searched, results pasted into

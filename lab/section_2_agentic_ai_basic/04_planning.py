@@ -1,5 +1,5 @@
 """
-§2 · 04 — Planning: three strategies.  (slides 18, 19, 20, 21)
+§2 · 04 — Planning: three strategies.  (slides 17, 18, 19, 20)
 
     uv run section_2_agentic_ai_basic/04_planning.py
 
@@ -115,7 +115,7 @@ def react(messages: list, model, max_steps: int = MAX_STEPS) -> list:
 
 # ==========================================================================
 # 01 · DECOMPOSITION — the whole sequence exists before the first action.
-#      (slide 19)
+#      (slide 18)
 # ==========================================================================
 
 PLANNER = ("Expand the goal into steps, each one doable with a single tool "
@@ -151,7 +151,7 @@ def decomposition() -> tuple[int, int, float]:
 
 # ==========================================================================
 # 02 · REACTIVE — no plan. Each action is chosen from the state as it stands.
-#      (slide 20)
+#      (slide 19)
 # ==========================================================================
 
 def reactive() -> tuple[int, int, float]:
@@ -172,7 +172,7 @@ def reactive() -> tuple[int, int, float]:
 
 # ==========================================================================
 # 03 · HIERARCHICAL — a coarse plan above, a reactive loop beneath.
-#      (slide 21)
+#      (slide 20)
 # ==========================================================================
 
 def contradicts(reply: AIMessage, remaining: list[str]) -> bool:

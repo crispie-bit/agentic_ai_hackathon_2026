@@ -1,5 +1,5 @@
 """
-§2 · 00 — Anatomy of an agent.  (slides 15, 16, 17)
+§2 · 00 — Anatomy of an agent.  (slides 15, 16)
 
     uv run section_2_agentic_ai_basic/00_anatomy_of_an_agent.py
 

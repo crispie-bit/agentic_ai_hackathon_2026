@@ -1,4 +1,4 @@
-# §2 — Agentic AI Basics  (slides 15–25)
+# §2 — Agentic AI Basics  (slides 15–26, then 27–34 for prompting)
 
 Easiest first. §1 established the single model call; this section adds the four
 things that turn a call into an agent — **tools, memory, reasoning, action** —
@@ -28,28 +28,33 @@ uv run section_2_agentic_ai_basic/06_prompt_engineering.py    # the third lab
 
 | | File | Slides | Difficulty | Format |
 |---|---|---|---|---|
-| 0 | `00_anatomy_of_an_agent.py` | 15, 16, 17 | ⬤◯◯◯◯ | read & run — **no API key, no cost** |
-| 1 | `01_memory.py` | 22 | ⬤⬤◯◯◯ | read & run |
+| 0 | `00_anatomy_of_an_agent.py` | 15, 16 | ⬤◯◯◯◯ | read & run — **no API key, no cost** |
+| 1 | `01_memory.py` | 21 | ⬤⬤◯◯◯ | read & run |
 | 2 | `02_tools.py` | 23 | ⬤⬤◯◯◯ | read & run |
-| 3 | `03_tool_composition.py` | 24 | ⬤⬤⬤◯◯ | read & run |
-| 4a | `04a_planning_decomposition.py` | 18, 19 | ⬤⬤◯◯◯ | read & run |
-| 4b | `04b_planning_reactive.py` | 20 | ⬤⬤◯◯◯ | read & run |
-| 4 | `04_planning.py` | 18, 19, 20, 21 | ⬤⬤⬤⬤◯ | read & run |
-| 5 | `05_agent_lab.py` | 25 | ⬤⬤⬤⬤⬤ | **hands-on**, 4 TODOs |
-| 6a | `06a_zero_shot.py` | — | ⬤◯◯◯◯ | read & run |
-| 6b | `06b_few_shot.py` | — | ⬤⬤◯◯◯ | read & run |
-| 6c | `06c_cot.py` | — | ⬤⬤◯◯◯ | read & run |
-| 6d | `06d_rag.py` | — | ⬤⬤⬤⬤◯ | **hands-on**, 2 TODOs |
-| 6 | `06_prompt_engineering.py` | — | ⬤⬤⬤⬤◯ | **hands-on**, 3 TODOs |
+| 3 | `03_tool_composition.py` | 22 | ⬤⬤⬤◯◯ | read & run |
+| 4a | `04a_planning_decomposition.py` | 18 | ⬤⬤◯◯◯ | read & run |
+| 4b | `04b_planning_reactive.py` | 19 | ⬤⬤◯◯◯ | read & run |
+| 4 | `04_planning.py` | 17, 18, 19, 20 | ⬤⬤⬤⬤◯ | read & run |
+| 5 | `05_agent_lab.py` | 24, 25, 26 | ⬤⬤⬤⬤⬤ | **hands-on**, 4 TODOs |
+| 5s | `05_agent_lab_solution.py` | 24 | — | the four TODOs filled in |
+| 6a | `06a_zero_shot.py` | 28 | ⬤◯◯◯◯ | read & run |
+| 6b | `06b_few_shot.py` | 29 | ⬤⬤◯◯◯ | read & run |
+| 6c | `06c_cot.py` | 30 | ⬤⬤◯◯◯ | read & run |
+| 6d | `06d_rag.py` | 31 | ⬤⬤⬤⬤◯ | **hands-on**, 2 TODOs |
+| 6 | `06_prompt_engineering.py` | 33, 34 | ⬤⬤⬤⬤◯ | **hands-on**, 3 TODOs |
+| 6s | `06_prompt_engineering_solution.py` | 34 | — | worked, with the reasoning |
 
 Files 0–4 you run and read. File 5 you write, and it assembles every piece
 from the ones before it. The 06 files come after, because prompting only
 becomes interesting once you have seen a tool call, a transcript and a loop.
 
-> The slide order puts planning (18–21) before memory and tools. The files
-> reorder it, because planning is much easier to follow once you have seen a
-> tool call and a transcript. Run them in file order; the slide numbers are on
-> each file so you can jump back.
+The deck splits this folder across two lab blocks: **LAB 02** (slides 25–26)
+is files 00–05, and **LAB 03** (slides 33–34) is the 06 files.
+
+> The slide order puts planning (17–20) before memory (21) and tools (22–23).
+> The files reorder it, because planning is much easier to follow once you have
+> seen a tool call and a transcript. Run them in file order; the slide numbers
+> are on each file so you can jump back.
 
 ## Which provider
 
@@ -89,7 +94,7 @@ point — it is what `chat_model()` buys you.
 
 ## What each file is for
 
-**00 · Anatomy of an agent** — the five stages of slide 16, printed as they
+**00 · Anatomy of an agent** — the four parts of slide 16, printed as they
 happen. The "model" is scripted Python, so there is no key, no network and no
 cost; the only thing on screen is the shape of the loop. Establishes the
 sentence the rest of the section rests on: **the model chooses, your code does
@@ -175,15 +180,49 @@ with the training wheels off and a grader attached. Three challenges, each a
 fixed test set with the answers already written down:
 
 | **TODO 1** · zero-shot | 8 tickets, 8/8 to pass | the label set is not given — read the test data, work out the three labels, and name them in the instruction |
-| **TODO 2** · few-shot | 6 tickets, 6/6 to pass | the instruction is **locked**; you may only choose 5 example rows out of the 9 in `TRAINING_DATA` |
+| **TODO 2** · few-shot | 6 tickets, 6/6 to pass | the instruction is **locked**; you may only choose 5 example rows out of the 7 in `TRAINING_DATA` |
 | **TODO 3** · chain of thought | 4 word problems, 4/4 to pass | the grader reads one line, `TOTAL: <number>`, and ignores every other word |
 
 Nothing here is marked out of ten by eye. You edit one string, re-run, and
 watch a count move — which is the only honest way to tell a prompt that works
-from a prompt that reads well. TODO 2 is the one worth arguing about: the
-instruction is locked precisely so that the only lever left is the examples,
-and picking 5 rows that miss the billing/security boundary scores worse than
-picking 5 that cover it. `play` runs the classifier against tickets you type:
+from a prompt that reads well.
+
+TODO 2 is the one to slow down on, and it prints its own baseline: challenge 2
+runs **twice**, once with no examples at all and once with yours.
+
+```
+--- 2a. FEW-SHOT, NO examples (the baseline to beat) ---
+  FAIL  got=billing   want=security   I see a payment I never made on my sta
+  [#####.] 5/6
+--- 2b. FEW-SHOT, your examples ---
+  [######] 6/6
+```
+
+The locked instruction already gets 5 of 6 on its own, so the entire challenge
+rides on one ticket — *"I see a payment I never made on my statement"*, which
+the instruction alone always calls `billing`. That is few-shot in one screen:
+the examples reach a boundary the instruction never states, and you can watch
+exactly which ticket moved.
+
+One training row draws that boundary explicitly — *"There is a charge from a
+device I don't recognise"* → `security`, the only row where money and security
+collide. How much it matters depends on the model, and it is worth saying so in
+the room. Testing all 21 legal picks against the full `TEST_2`: on **Groq /
+gpt-oss, 20 of 21 pass**, including picks without that row, so most students
+will clear it first try. On **Bedrock / Haiku only 13 of 21 pass, and every one
+of them contains that row** — no pick without it ever passes. The lift from the
+baseline is the part that holds on both.
+
+TODO 3 is not the lesson its name suggests. The starter prompt gets all four
+totals *right* on both providers and still scores 0/4. What the two models do
+with "reply with the final number only" is opposite — Groq's gpt-oss obeys to
+the letter and answers `62.70`; Bedrock's Haiku ignores it and prints a page of
+markdown working — and neither produces a line the grader can read. Four
+correct answers, zero points, twice, for opposite reasons. The challenge is an
+output contract, not arithmetic, and the obedient model failing is the point:
+an answer your code cannot parse is not an answer.
+
+`play` runs the classifier against tickets you type:
 
 ```bash
 uv run section_2_agentic_ai_basic/06_prompt_engineering.py play

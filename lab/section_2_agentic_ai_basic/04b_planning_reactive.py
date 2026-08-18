@@ -1,5 +1,5 @@
 """
-Reactive planning — the smallest version.
+§2 · 04b — Reactive planning, the smallest version.  (slide 19)
 
     uv run section_2_agentic_ai_basic/04b_reactive.py
 

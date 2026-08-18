@@ -1,5 +1,5 @@
 """
-Planning by decomposition — the smallest version.
+§2 · 04a — Planning by decomposition, the smallest version.  (slide 18)
 
     uv run section_2_agentic_ai_basic/04a_decomposition.py
 
