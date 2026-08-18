@@ -36,7 +36,7 @@ AWS CLI and SSO setup: [`lab/AWS_SETUP.md`](lab/AWS_SETUP.md).
 Most files are demos to run and read. These are exercises with `TODO` blocks —
 the file runs before you touch it and gets the answer wrong in a useful way:
 
-- `lab/section_2_agentic_ai_basic/05_agent_lab.py` — the agent loop, 3 TODOs
+- `lab/section_2_agentic_ai_basic/05_agent_lab.py` — the agent loop, 4 TODOs
 - `lab/section_2_agentic_ai_basic/06d_rag.py` — retrieval from scratch, 2 TODOs
 - `lab/section_2_agentic_ai_basic/06_prompt_engineering.py` — 3 prompts to beat a grader
 - `lab/section_4_langgraph/01_graph_lab.py` — state, nodes, edges
