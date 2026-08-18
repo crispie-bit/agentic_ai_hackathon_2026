@@ -30,6 +30,60 @@ MY_EXAMPLES = [
 # 3. Get 4/4. The grader only reads a line formatted:  TOTAL: <number>
 MY_MATH_INSTRUCTION = "Reply with the final number only."
 
+
+
+# 1. Get 8/8.
+#    Priority order is what makes it work: technical wins over billing,
+#    billing is defined narrowly, account catches the rest.
+MY_INSTRUCTION = (
+    "You label customer support tickets. Apply these rules in order and stop "
+    "at the first one that matches.\n"
+    "\n"
+    "1. technical — the customer says something does not work: an error, a "
+    "crash, a page that will not load, a file that will not download, data "
+    "that does not appear. This applies even when the broken thing is a "
+    "payment page, an invoice or a receipt.\n"
+    "2. billing — nothing is broken, and the customer is disputing money: a "
+    "wrong charge, a price that does not match, or a refund request. This "
+    "applies even if they mention having cancelled.\n"
+    "3. account — the customer wants to change, close, transfer or share the "
+    "account itself. This applies even if cost is the reason they are "
+    "closing it.\n"
+    "\n"
+    "Reply with exactly one word, lowercase: billing, technical or account. "
+    "No punctuation, no explanation, no greeting."
+)
+
+# 2. Get 6/6. The hidden rule: money tickets split two ways.
+#    - a charge the customer does not recognise is SECURITY, not billing
+#    - a charge that is simply wrong (tax, currency, proration) is BILLING
+#    The unrecognised-charge row is the one that matters. Put it last.
+MY_EXAMPLES = [
+    ("The export button does nothing.", "engineering"),
+    ("The dashboard is blank on Safari.", "engineering"),
+    ("My invoice has the wrong VAT number.", "billing"),
+    ("I was billed in the wrong currency.", "billing"),
+    ("There is a charge from a device I don't recognise.", "security"),
+]
+
+# 3. Get 4/4. Steps alone are not enough — the grader only reads TOTAL:.
+MY_MATH_INSTRUCTION = (
+    "Solve the problem step by step.\n"
+    "\n"
+    "1. List the quantities and prices given.\n"
+    "2. Work out the subtotal.\n"
+    "3. Apply each adjustment in the order the problem states it, and say "
+    "which amount that adjustment applies to.\n"
+    "4. Check whether anything is excluded from a discount, or given free, "
+    "before you finish.\n"
+    "\n"
+    "Then end your reply with a final line in exactly this format:\n"
+    "TOTAL: <number>\n"
+    "\n"
+    "The TOTAL line must be the last line and must contain only the final "
+    "answer as a number with two decimal places."
+)
+
 # ##########################################################################
 
 LOCKED_INSTRUCTION = ("Route this ticket to one team: billing, security or "

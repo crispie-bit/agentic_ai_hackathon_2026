@@ -1,94 +1,101 @@
 """
-§4 · 00 — LangGraph in 60 lines. No model, no API key, no cost.
+§4 · 00 — The agent loop as a graph.
 
     uv run section_4_langgraph/00_langgraph_basics.py
 
-Four things to learn, and nothing else in the way:
+The whole of LangGraph in one file:
 
     STATE    the shared object passed between steps
     NODES    plain functions: state in, partial update out
     EDGES    which node runs next
     RUNTIME  what compile() gives you
 
-There is deliberately no LLM here. Every node is three lines of ordinary
-Python, so the only thing you are watching is the graph.
+The graph is the §3 ReAct `for` loop with names on it: the model node decides,
+a router looks at the last message, and the tool node runs whatever was asked
+for and loops back.
+
+    START -> chatbot -> should_continue -> tools -> (back to chatbot)
+                              |
+                              +-> END
+
+The model comes from chat_model(), so the same file runs on Groq (free tier)
+or on Bedrock — the only difference is LLM_PROVIDER in lab/.env.
 """
 
-from typing import Annotated, TypedDict
+from typing import Annotated
 
+from langchain_core.tools import tool
 from langgraph.graph import END, START, StateGraph
+from langgraph.graph.message import add_messages
+from langgraph.prebuilt import ToolNode
+from typing_extensions import TypedDict
+
+import _bootstrap  # noqa: F401
+
+from _common import banner, chat_model, model_label
 
 
 # ---------------------------------------------------------------- 1. STATE
-# One TypedDict, shared by every node. The reducer on `log` appends;
-# everything else is replaced key by key.
-
-def append(old: list, new: list) -> list:
-    """A reducer: (old, new) -> merged. This is all a reducer ever is."""
-    return (old or []) + (new or [])
-
-
 class State(TypedDict):
-    order: dict                        # seeded by the caller
-    total: float                       # written by price
-    status: str                        # written by validate and confirm
-    log: Annotated[list, append]       # appended by every node
+    # add_messages is a reducer: it APPENDS new messages instead of
+    # overwriting the list. Drop it and each node clobbers the history.
+    messages: Annotated[list, add_messages]
 
 
-# ---------------------------------------------------------------- 2. NODES
+# ---------------------------------------------------------------- 2. TOOLS
+@tool
+def calculate_sum(a: int, b: int) -> int:
+    """Adds two numbers."""
+    return a + b
+
+
+tools = [calculate_sum]
+
+# The one model line. No provider name in this file — _common decides.
+llm = chat_model().bind_tools(tools)
+
+
+# ---------------------------------------------------------------- 3. NODES
 # state in, PARTIAL dict out. Return only what you changed.
 
-def validate(state: State) -> dict:
-    ok = state["order"].get("qty", 0) > 0
-    print(f"  [validate] qty={state['order'].get('qty')} -> {'ok' if ok else 'REJECTED'}")
-    return {"status": "valid" if ok else "rejected", "log": ["validate"]}
+def chatbot_node(state: State) -> dict:
+    response = llm.invoke(state["messages"])
+    return {"messages": [response]}
 
 
-def price(state: State) -> dict:
-    total = state["order"]["qty"] * state["order"]["unit_price"]
-    print(f"  [price]    {state['order']['qty']} x {state['order']['unit_price']} = {total}")
-    return {"total": total, "log": ["price"]}
+tool_node = ToolNode(tools)      # runs every tool_call on the last message
 
 
-def confirm(state: State) -> dict:
-    print(f"  [confirm]  order confirmed at {state['total']}")
-    return {"status": "confirmed", "log": ["confirm"]}
-
-
-# ---------------------------------------------------------------- 3. EDGES
+# ---------------------------------------------------------------- 4. EDGES
 # A router is a PURE function of state returning a label. No model call.
 
-def is_valid(state: State) -> str:
-    return "ok" if state["status"] == "valid" else "reject"
+def should_continue(state: State):
+    last_message = state["messages"][-1]
+    if getattr(last_message, "tool_calls", None):
+        return "tools"
+    return END
 
 
 builder = StateGraph(State)
 
-builder.add_node("validate", validate)          # register each node by name
-builder.add_node("price", price)
-builder.add_node("confirm", confirm)
+builder.add_node("chatbot", chatbot_node)       # register each node by name
+builder.add_node("tools", tool_node)
 
-builder.add_edge(START, "validate")             # where to begin
-builder.add_conditional_edges(                  # a fork: label -> next node
-    "validate", is_valid,
-    {"ok": "price", "reject": END},
-)
-builder.add_edge("price", "confirm")            # plain edge: always next
-builder.add_edge("confirm", END)                # where to stop
+builder.add_edge(START, "chatbot")              # where to begin
+builder.add_conditional_edges("chatbot", should_continue, ["tools", END])
+builder.add_edge("tools", "chatbot")            # loop back after a tool ran
 
-# ---------------------------------------------------------------- 4. RUNTIME
+# ---------------------------------------------------------------- 5. RUNTIME
 graph = builder.compile()      # <- validates the wiring, returns a runnable
 
 
 if __name__ == "__main__":
+    banner(f"§4 · 00 — the agent loop as a graph   [{model_label()}]")
     print(graph.get_graph().draw_ascii())
 
-    print("\n--- a good order ---")
-    final = graph.invoke({"order": {"qty": 3, "unit_price": 12.50}, "log": []})
-    print(f"  final state: status={final['status']} total={final['total']}")
-    print(f"  log:         {final['log']}   <- the reducer appended")
+    user_input = {"messages": [("user", "What is 42 + 58?")]}
+    output = graph.invoke(user_input)
 
-    print("\n--- a bad order (qty 0) ---")
-    final = graph.invoke({"order": {"qty": 0, "unit_price": 12.50}, "log": []})
-    print(f"  final state: status={final['status']}")
-    print(f"  log:         {final['log']}   <- price and confirm never ran")
+    print()
+    for msg in output["messages"]:
+        print(f"{msg.type.upper()}: {msg.content}")

@@ -25,8 +25,6 @@ from langchain_core.tools import tool
 from langchain_core.utils.function_calling import convert_to_openai_tool
 
 from _common import banner, chat_model, model_label, report_usage
-
-
 # ==========================================================================
 # 1. THE DECLARATION — everything the model will ever know about this tool.
 # ==========================================================================
