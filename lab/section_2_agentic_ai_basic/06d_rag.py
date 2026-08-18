@@ -31,7 +31,7 @@ except ImportError:
 
     from groq import Groq
 
-    GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+    GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
 
     def groq_client():
         if not os.environ.get("GROQ_API_KEY"):

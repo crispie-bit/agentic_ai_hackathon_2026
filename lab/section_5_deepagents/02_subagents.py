@@ -1,7 +1,7 @@
 """
-§5 · 03 — Defining sub-agents.  (slide 50)
+§5 · 02 — Defining sub-agents.  (slide 50)
 
-    uv run section_5_deepagents/03_subagents.py
+    uv run section_5_deepagents/02_subagents.py
 
 No class to inherit and no graph to wire. A sub-agent is a DICT:
 

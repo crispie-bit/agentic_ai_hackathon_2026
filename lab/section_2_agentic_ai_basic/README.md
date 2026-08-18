@@ -66,7 +66,7 @@ provider. Everything below goes through `chat_model()` in `lab/_common.py`.
 
 # --- Groq (default: free tier, no AWS) -------------------------------
 GROQ_API_KEY=gsk_...
-# GROQ_MODEL=llama-3.3-70b-versatile      # only if the default id breaks
+# GROQ_MODEL=openai/gpt-oss-120b          # only if the default id breaks
 # LLM_PROVIDER=bedrock                    # <- commented out = Groq
 
 # --- Bedrock ---------------------------------------------------------

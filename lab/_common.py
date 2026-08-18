@@ -57,7 +57,7 @@ PROVIDER = os.environ.get("LLM_PROVIDER", "groq")
 # assembles ids will work for months and then fail on one model.
 # --------------------------------------------------------------------------
 
-GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b")
 
 # Kept as MODEL_ID because labs 01-08 (Session 2 and take-home) import that name.
 MODEL_ID = os.environ.get(
