@@ -40,11 +40,11 @@ Each folder has its own `README.md` with what to run and in what order.
 
 | | |
 |---|---|
-| **Labs** (students type) | `section_2/05_agent_lab.py`, `section_2/06d_rag.py`, `section_2/prompt_engineering.py`, `section_4/01_graph_lab.py` |
+| **Labs** (students type) | `section_2/05_agent_lab.py`, `section_2/06d_rag.py`, `section_2/06_prompt_engineering.py`, `section_4/01_graph_lab.py` |
 | **Everything else** | demos you run and narrate |
 
-Each lab file runs as-is and fails in an instructive way; the `TODO(student)`
-blocks are marked in the code.
+Each lab file runs as-is and fails in an instructive way; the `TODO` blocks are
+marked in the code. Sections 3 and 6 spell the marker `TODO(student)`.
 
 ## Keys
 

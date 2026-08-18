@@ -1,10 +1,14 @@
 """
-PROMPT LAB — beat all three.
+§2 · 06 — PROMPT LAB. Three TODOs, three scores to beat.
 
-    uv run section_2_prompting/prompt_lab.py
-    uv run section_2_prompting/prompt_lab.py play
+    uv run section_2_agentic_ai_basic/06_prompt_engineering.py
+    uv run section_2_agentic_ai_basic/06_prompt_engineering.py play
 
-Edit the EDIT ZONE, re-run, repeat. Answers in solutions.py.
+Zero-shot, few-shot and chain of thought — 06a, 06b and 06c — with the
+training wheels off. Each TODO is graded against a fixed test set, so you are
+not asking whether a prompt reads well; you are watching a number.
+
+Edit the EDIT ZONE, re-run, repeat.
 """
 
 import re
@@ -19,15 +23,22 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 #                              EDIT ZONE
 # ##########################################################################
 
-# 1. Get 8/8.
+# TODO 1 — get 8/8 on TEST_1. Zero-shot: the instruction is all you get.
+# The label set is not written down anywhere. Read TEST_1 and work out what
+# the three labels are, then name them here — a model cannot pick a category
+# it has not been told exists. Two of the tickets sit on a boundary.
 MY_INSTRUCTION = "Sort the message."
 
-# 2. Get 6/6. Instruction is locked. Exactly 5 rows, copied from TRAINING_DATA.
+# TODO 2 — get 6/6 on TEST_2. The instruction is locked, so the only thing
+# you can change is which examples the model sees. Exactly 5 rows, copied
+# from TRAINING_DATA unedited. Which 5 is the whole exercise.
 MY_EXAMPLES = [
     # ("ticket text", "label"),
 ]
 
-# 3. Get 4/4. The grader only reads a line formatted:  TOTAL: <number>
+# TODO 3 — get 4/4 on TEST_3. The grader is not reading your prose, only a
+# line formatted:  TOTAL: <number>
+# Getting the arithmetic right and getting it parsed are two problems.
 MY_MATH_INSTRUCTION = "Reply with the final number only."
 
 # ##########################################################################

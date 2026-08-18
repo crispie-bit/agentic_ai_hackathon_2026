@@ -23,7 +23,7 @@ uv run section_2_agentic_ai_basic/06a_zero_shot.py
 uv run section_2_agentic_ai_basic/06b_few_shot.py
 uv run section_2_agentic_ai_basic/06c_cot.py
 uv run section_2_agentic_ai_basic/06d_rag.py                  # the second lab
-uv run section_2_agentic_ai_basic/prompt_engineering.py
+uv run section_2_agentic_ai_basic/06_prompt_engineering.py    # the third lab
 ```
 
 | | File | Slides | Difficulty | Format |
@@ -40,7 +40,7 @@ uv run section_2_agentic_ai_basic/prompt_engineering.py
 | 6b | `06b_few_shot.py` | — | ⬤⬤◯◯◯ | read & run |
 | 6c | `06c_cot.py` | — | ⬤⬤◯◯◯ | read & run |
 | 6d | `06d_rag.py` | — | ⬤⬤⬤⬤◯ | **hands-on**, 2 TODOs |
-| 6 | `prompt_engineering.py` | — | ⬤⬤⬤◯◯ | read & run, then 4 TODOs |
+| 6 | `06_prompt_engineering.py` | — | ⬤⬤⬤⬤◯ | **hands-on**, 3 TODOs |
 
 Files 0–4 you run and read. File 5 you write, and it assembles every piece
 from the ones before it. The 06 files come after, because prompting only
@@ -141,7 +141,7 @@ The two things the TODOs leave out are worth adding yourself once it runs: a
 try/except that turns a crash into an observation, and a check for a tool name
 that does not exist.
 
-## 06 · Prompting — four techniques, then the agent version
+## 06 · Prompting — four techniques, then a graded lab
 
 The first four files are one technique each, on the same shape of task, so you
 can diff them against one another:
@@ -170,18 +170,24 @@ where retrieval finds nothing useful. **TODO 1** changes `TOP_K`, **TODO 2**
 changes `MIN_SCORE` — the two knobs that decide what the model is allowed to
 see.
 
-**prompt_engineering.py** — the same lesson, but inside an agent, where a
-prompt is not only what you ask:
+**06_prompt_engineering.py** *(hands-on, 3 TODOs)* — 06a, 06b and 06c again,
+with the training wheels off and a grader attached. Three challenges, each a
+fixed test set with the answers already written down:
 
-| the tool docstring | decides **which** tool gets called |
-|---|---|
-| the system prompt | decides **how much** the model does at once |
-| the error string | decides **whether** the agent can recover |
-| the examples | decide **what form** the answer takes |
+| **TODO 1** · zero-shot | 8 tickets, 8/8 to pass | the label set is not given — read the test data, work out the three labels, and name them in the instruction |
+| **TODO 2** · few-shot | 6 tickets, 6/6 to pass | the instruction is **locked**; you may only choose 5 example rows out of the 9 in `TRAINING_DATA` |
+| **TODO 3** · chain of thought | 4 word problems, 4/4 to pass | the grader reads one line, `TOTAL: <number>`, and ignores every other word |
 
-Four experiments, four tasks, each run twice — working, then broken by a
-one-line change — so the difference is visible rather than described. Four
-`TODO(student)` blocks at the bottom ask you to break them yourself.
+Nothing here is marked out of ten by eye. You edit one string, re-run, and
+watch a count move — which is the only honest way to tell a prompt that works
+from a prompt that reads well. TODO 2 is the one worth arguing about: the
+instruction is locked precisely so that the only lever left is the examples,
+and picking 5 rows that miss the billing/security boundary scores worse than
+picking 5 that cover it. `play` runs the classifier against tickets you type:
+
+```bash
+uv run section_2_agentic_ai_basic/06_prompt_engineering.py play
+```
 
 ## Things worth arguing about in the room
 
