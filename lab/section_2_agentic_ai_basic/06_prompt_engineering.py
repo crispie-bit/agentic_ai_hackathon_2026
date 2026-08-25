@@ -40,33 +40,24 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 #                              EDIT ZONE
 # ##########################################################################
 
-# TODO 1 — get 8/8 on TEST_1. Zero-shot: the instruction is all you get.
-# The label set is not written down anywhere. Read TEST_1 below, work out what
-# the three labels are, and name them here — a model cannot pick a category it
-# has not been told exists. One of the eight sits on a boundary and will need
-# more from you than just the three names.
-MY_INSTRUCTION = "Sort the message."
+MY_INSTRUCTION = """Classify each customer message as exactly one of: billing,
+account, technical. Use billing for incorrect charges, prices, refunds, or
+payment disputes; account for subscription cancellation and changes to users
+or login details; technical for software errors, broken features, or anything
+that fails to work. Classify by the primary problem: a broken invoice download
+is technical even though it mentions an invoice. Reply with only the lowercase
+label."""
 
-# TODO 2 — get 6/6 on TEST_2. The instruction is LOCKED, so the only thing you
-# can change is which examples the model sees. TRAINING_DATA is the list just
-# below this EDIT ZONE; copy exactly 5 of its 7 rows in here, unedited, text
-# and label both. Which 5 is the entire exercise.
-#
-# Run it once before you choose. The lab prints the locked instruction's score
-# with NO examples first — it already gets 5/6. Everything here rides on the
-# one ticket it gets wrong, so pick the rows that teach that ticket.
 MY_EXAMPLES = [
-    # ("ticket text", "label"),
+    ("My invoice has the wrong VAT number.", "billing"),
+    ("I was billed in the wrong currency.", "billing"),
+    ("There is a charge from a device I don't recognise.", "security"),
+    ("The export button does nothing.", "engineering"),
+    ("The dashboard is blank on Safari.", "engineering"),
 ]
 
-# TODO 3 — get 4/4 on TEST_3. The grader does not read your prose. It reads
-# one line, and only this shape:
-#
-#     TOTAL: <number>
-#
-# Before you assume the model is bad at sums: check what it actually replies.
-# A right answer the grader cannot find still scores zero.
-MY_MATH_INSTRUCTION = "Reply with the final number only."
+MY_MATH_INSTRUCTION = """Solve the problem step by step. End your response with
+the final amount on its own line in exactly this format: TOTAL: <number>"""
 
 # ##########################################################################
 
