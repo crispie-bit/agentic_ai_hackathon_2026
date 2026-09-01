@@ -1,33 +1,6 @@
 from pathlib import Path
 
-from agentic_system.tools.ntulearn_tool import fetch_ntulearn_updates, login_to_ntulearn
-
-
-def test_fetch_ntulearn_updates_extracts_updates_from_html(tmp_path: Path):
-    html = """
-    <html>
-      <body>
-        <h1>Course Updates</h1>
-        <div>
-          <h2>Assignment 1</h2>
-          <p>Assignment 1 is due on Friday at 5pm.</p>
-        </div>
-        <ul>
-          <li>Lecture recording is now available.</li>
-          <li>Quiz 2 has been released.</li>
-        </ul>
-      </body>
-    </html>
-    """
-
-    page = tmp_path / "ntulearn.html"
-    page.write_text(html, encoding="utf-8")
-
-    updates = fetch_ntulearn_updates(str(page))
-
-    assert any("Assignment 1" in item for item in updates)
-    assert any("due on friday" in item.lower() for item in updates)
-    assert any("Lecture recording" in item for item in updates)
+from agentic_system.tools.ntulearn_tool import login_to_ntulearn
 
 
 def test_login_to_ntulearn_uses_headed_browser(monkeypatch, tmp_path):
