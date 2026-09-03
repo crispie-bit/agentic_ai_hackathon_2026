@@ -1,0 +1,22 @@
+{
+  "servers": {
+    "github": {
+      "type": "stdio",
+      "command": "C:\\Program Files\\nodejs\\npx.cmd",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-github"
+      ],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${input:github_token}"
+      }
+    }
+  },
+  "inputs": [
+    {
+      "id": "github_token",
+      "type": "promptString",
+      "description": "GitHub personal access token with repo, pull_request, and contents access"
+    }
+  ]
+}

@@ -35,12 +35,14 @@ def main() -> None:
     print("Installing Python packages from requirements.txt...")
     run([python_exe, "-m", "pip", "install", "--upgrade", "pip"])
     run([python_exe, "-m", "pip", "install", "-r", str(REQ_FILE)])
+    print("Installing the Chromium browser used for NTULearn SSO...")
+    run([python_exe, "-m", "playwright", "install", "chromium"])
 
     print("\nPrerequisites installed successfully.")
     print("Next steps:")
     print("  1. Copy .env.example to .env and fill in your real credentials")
     print("  2. Set ENABLE_OUTLOOK=true, ENABLE_AWS=true, etc. as needed")
-    print("  3. Run: python main.py")
+    print("  3. Run: .\\run_app.ps1")
 
 
 if __name__ == "__main__":

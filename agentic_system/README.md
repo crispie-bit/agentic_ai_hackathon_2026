@@ -58,3 +58,29 @@ pip install -r requirements.txt
 ```
 
 Then add your AWS keys to `.env` (private file) and enable only the features you need.
+
+## Latest feature update
+
+The Agentic Workday OS now includes a runnable Streamlit interface and staged first-run setup:
+
+- Added a preparation gate that keeps assistant questions locked until platform setup is complete.
+- Added visible NTULearn SSO login with persisted browser storage state.
+- Added Outlook sign-in and Microsoft Graph mailbox ingestion into a local searchable workspace.
+- Added a SQLite-backed workspace index and grounded keyword retrieval for course and email content.
+- Added optional microphone transcription and local text-to-speech responses.
+- Added `run_app.ps1` for Windows launch and expanded `setup_prereqs.py` to install Streamlit, voice packages, and Chromium.
+- Added `MICROSOFT_REDIRECT_URI` to `.env.example` for the Graph authentication configuration.
+
+### Teammate task summary
+
+Completed: Outlook Graph integration, Azure configuration validation, AWS credential validation, NTULearn session handling, shared workspace storage, staged onboarding UI, chat retrieval, voice controls, prerequisite installation, regression tests, and application startup validation.
+
+Remaining integration task: confirm NTULearn's live course-page selectors and download behavior against an authenticated student account so every course file can be downloaded and extracted automatically.
+
+### GitHub feature description
+
+**feat: add staged Agentic Workday OS onboarding and workspace assistant**
+
+This feature adds the first runnable end-user workflow for the Agentic Workday OS. Users can launch the Streamlit interface, authenticate NTULearn in a visible browser, sign in to Outlook through Microsoft Graph, ingest source data into a local SQLite workspace, and query the indexed content through a preparation-gated assistant. Optional voice input and spoken responses are included, and the prerequisite installer now provisions the UI, voice dependencies, and Playwright Chromium browser.
+
+The workflow requires real AWS credentials, Microsoft Entra app registration values, Microsoft consent, and an NTULearn SSO session. Secrets remain environment-only and are not committed.

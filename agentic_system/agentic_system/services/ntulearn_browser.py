@@ -21,14 +21,15 @@ class NTULearnBrowser:
                 "Playwright is not installed. Install it with: pip install playwright && python -m playwright install chromium"
             )
 
-        with sync_playwright() as playwright:
-            browser = playwright.chromium.launch(headless=headless)
-            context = browser.new_context(storage_state=self.storage_state_path.read_text(encoding="utf-8") if self.storage_state_path.exists() else None)
-            page = context.new_page()
-            page.goto("https://learning.ntu.edu.sg/")
-            page.wait_for_load_state("networkidle")
-            context.storage_state(path=str(self.storage_state_path))
-            return browser
+        playwright = sync_playwright().start()
+        browser = playwright.chromium.launch(headless=headless)
+        browser._agentic_playwright = playwright
+        context = browser.new_context(storage_state=self.storage_state_path.read_text(encoding="utf-8") if self.storage_state_path.exists() else None)
+        page = context.new_page()
+        page.goto("https://learning.ntu.edu.sg/")
+        page.wait_for_load_state("networkidle")
+        context.storage_state(path=str(self.storage_state_path))
+        return browser
 
     def open_authenticated_page(self, url: str, headless: bool = False):
         browser = self.open_headed_session(headless=headless)

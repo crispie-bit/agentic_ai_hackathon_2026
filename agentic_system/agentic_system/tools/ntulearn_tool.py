@@ -27,7 +27,20 @@ def login_to_ntulearn(storage_state_path: str | None = None, headless: bool = Fa
     target = Path(storage_state_path) if storage_state_path else Path(__file__).resolve().parents[1] / "ntulearn_session.json"
     target.parent.mkdir(parents=True, exist_ok=True)
 
-    with sync_playwright() as playwright:
+    manager = sync_playwright()
+    if hasattr(manager, "start"):
+        playwright = manager.start()
+        browser = playwright.chromium.launch(headless=headless)
+        browser._agentic_playwright = playwright
+        context = browser.new_context(storage_state=target.read_text(encoding="utf-8") if target.exists() else None)
+        page = context.new_page()
+        page.goto("https://learning.ntu.edu.sg/")
+        page.wait_for_load_state("networkidle")
+        context.storage_state(path=str(target))
+        return browser
+
+    # Keeps the lightweight fake used by tests compatible with the real flow.
+    with manager as playwright:
         browser = playwright.chromium.launch(headless=headless)
         context = browser.new_context(storage_state=target.read_text(encoding="utf-8") if target.exists() else None)
         page = context.new_page()
@@ -35,6 +48,15 @@ def login_to_ntulearn(storage_state_path: str | None = None, headless: bool = Fa
         page.wait_for_load_state("networkidle")
         context.storage_state(path=str(target))
         return browser
+
+
+def save_ntulearn_session(browser, storage_state_path: str | None = None) -> None:
+    """Persist cookies after the user completes the visible NTULearn SSO flow."""
+    target = Path(storage_state_path) if storage_state_path else Path(__file__).resolve().parents[1] / "ntulearn_session.json"
+    contexts = getattr(browser, "contexts", [])
+    if not contexts:
+        raise RuntimeError("The NTULearn browser session is no longer available.")
+    contexts[0].storage_state(path=str(target))
 
 
 def fetch_ntulearn_updates(*args, **kwargs):
