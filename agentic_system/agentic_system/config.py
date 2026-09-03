@@ -18,7 +18,10 @@ AWS_SESSION_TOKEN = os.getenv("AWS_SESSION_TOKEN", "")
 ENABLE_SPEECH = os.getenv("ENABLE_SPEECH", "false").lower() in {"1", "true", "yes"}
 ENABLE_OUTLOOK = os.getenv("ENABLE_OUTLOOK", "false").lower() in {"1", "true", "yes"}
 ENABLE_NTU_LEARN = os.getenv("ENABLE_NTU_LEARN", "false").lower() in {"1", "true", "yes"}
-ENABLE_AWS = os.getenv("ENABLE_AWS", "false").lower() in {"1", "true", "yes"}
+ENABLE_AWS = (
+    os.getenv("ENABLE_AWS", "false").lower() in {"1", "true", "yes"}
+    or bool(AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY)
+)
 
 AWS_READY = APP_MODE.lower() in {"aws", "live", "production"} or ENABLE_AWS
 
