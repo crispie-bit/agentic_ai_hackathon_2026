@@ -1,0 +1,8 @@
+{"id":"security-unauthorized-payment","text":"I see a payment I never made on my statement.","route":"security","tier":"standard"}
+{"id":"security-unknown-session","text":"A device I do not own is in my active sessions.","route":"security","tier":"standard"}
+{"id":"technical-invoice-download","text":"The invoice PDF won't download.","route":"technical","tier":"standard"}
+{"id":"technical-upload-failure","text":"Uploads fail silently on large files.","route":"technical","tier":"standard"}
+{"id":"billing-currency","text":"I was charged in dollars instead of euros.","route":"billing","tier":"standard"}
+{"id":"billing-refund","text":"Refund the annual charge, I cancelled in June.","route":"billing","tier":"standard"}
+{"id":"account-subscription","text":"I can't afford this anymore, close my subscription.","route":"account","tier":"standard"}
+{"id":"account-user-seat","text":"Add my colleague as a second user on my plan.","route":"account","tier":"enterprise"}

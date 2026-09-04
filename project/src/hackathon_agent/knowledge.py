@@ -2,12 +2,18 @@
 
 from __future__ import annotations
 
+import json
 import math
 import re
 from collections import Counter
 from collections.abc import Iterable
+from pathlib import Path
+from typing import Any
 
 from .models import KnowledgeArticle, RetrievedContext, Route
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_KNOWLEDGE_PATH = PROJECT_ROOT / "data" / "knowledge_articles.jsonl"
 
 TOKEN_RE = re.compile(r"[a-z0-9']+")
 STOPWORDS = {
@@ -73,7 +79,13 @@ class KnowledgeBase:
 
     @classmethod
     def default(cls) -> "KnowledgeBase":
+        if DEFAULT_KNOWLEDGE_PATH.exists():
+            return cls.from_path(DEFAULT_KNOWLEDGE_PATH)
         return cls(default_articles())
+
+    @classmethod
+    def from_path(cls, path: str | Path) -> "KnowledgeBase":
+        return cls(load_articles(path))
 
     def search(self, query: str, *, top_k: int = 3, min_score: float = 0.04) -> list[RetrievedContext]:
         if top_k < 1:
@@ -88,6 +100,46 @@ class KnowledgeBase:
             reverse=True,
         )
         return [item for item in ranked[:top_k] if item.score >= min_score]
+
+
+def load_articles(path: str | Path) -> tuple[KnowledgeArticle, ...]:
+    source = Path(path)
+    text = source.read_text(encoding="utf-8")
+    rows: list[dict[str, Any]]
+    if source.suffix == ".json" or text.lstrip().startswith("["):
+        raw = json.loads(text)
+        if not isinstance(raw, list):
+            raise ValueError(f"{source} must contain a list of articles")
+        rows = raw
+    else:
+        rows = []
+        for line_number, line in enumerate(text.splitlines(), start=1):
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"Invalid JSON at {source}:{line_number}: {exc}") from exc
+            rows.append(row)
+
+    articles = tuple(_article_from_dict(row, source) for row in rows)
+    if not articles:
+        raise ValueError(f"No knowledge articles found in {source}")
+    return articles
+
+
+def _article_from_dict(row: dict[str, Any], source: Path) -> KnowledgeArticle:
+    try:
+        return KnowledgeArticle(
+            id=str(row["id"]),
+            title=str(row["title"]),
+            route=Route(str(row["route"]).lower()),
+            content=str(row["content"]),
+            tags=tuple(str(tag) for tag in row.get("tags", ())),
+        )
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError(f"Invalid knowledge article in {source}: {exc}") from exc
 
 
 def default_articles() -> tuple[KnowledgeArticle, ...]:
@@ -145,4 +197,3 @@ def default_articles() -> tuple[KnowledgeArticle, ...]:
             ),
         ),
     )
-

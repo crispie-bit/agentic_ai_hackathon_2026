@@ -85,6 +85,8 @@ class AgentDecision:
     recommended_action: str
     next_steps: tuple[str, ...]
     retrieved_context: tuple[RetrievedContext, ...]
+    rationale: str = ""
+    classifier: str = "rules"
     flags: tuple[str, ...] = ()
     handoff_required: bool = False
 
@@ -97,6 +99,7 @@ class AgentDecision:
             "next_steps": list(self.next_steps),
             "flags": list(self.flags),
             "handoff_required": self.handoff_required,
+            "rationale": self.rationale,
+            "classifier": self.classifier,
             "retrieved_context": [context.to_dict() for context in self.retrieved_context],
         }
-
