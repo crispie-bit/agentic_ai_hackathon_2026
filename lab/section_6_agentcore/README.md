@@ -1,5 +1,3 @@
-# §6 — AgentCore: deployment  (slides 53–54)
-
 The same LangGraph agent from §4, behind a managed HTTPS endpoint. **The graph
 does not change.**
 

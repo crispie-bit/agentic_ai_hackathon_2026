@@ -18,8 +18,9 @@ import _bootstrap  # noqa: F401
 
 from _common import GROQ_MODEL, banner, groq_client, report_usage
 
-MAX_TOKENS = 300      # TODO 2 changes this
-TEMPERATURE = 0.0     # TODO 3 changes this
+MAX_TOKENS = 300
+TRUNCATION_MAX_TOKENS = 10
+TEMPERATURE = 1.0     # TODO 3 changes this
 
 
 def ask(client, messages, max_tokens=MAX_TOKENS, temperature=TEMPERATURE):
@@ -95,7 +96,11 @@ def part_b_statelessness(client) -> None:
     #
     #   That list IS the memory. There is no other kind.
     # ---------------------------------------------------------------------
-    second_turn = [question_2]
+    second_turn = [
+        question_1,
+        {"role": "assistant", "content": reply},
+        question_2,
+    ]
 
     answer, _, usage_2 = ask(client, second_turn)
     print(f"\n  call 2 -> {answer.strip()[:160]!r}")
@@ -116,7 +121,7 @@ def part_b_statelessness(client) -> None:
 # --------------------------------------------------------------------------
 
 def part_c_truncation(client) -> None:
-    banner(f"C. max_completion_tokens = {MAX_TOKENS}")
+    banner(f"C. max_completion_tokens = {TRUNCATION_MAX_TOKENS}")
 
     messages = [
         {"role": "system",
@@ -124,7 +129,7 @@ def part_c_truncation(client) -> None:
                     '{"answer": "<two sentences>", "confidence": "high|medium|low"}'},
         {"role": "user", "content": "Why is an LLM API call stateless?"},
     ]
-    text, finish, usage = ask(client, messages)
+    text, finish, usage = ask(client, messages, max_tokens=TRUNCATION_MAX_TOKENS)
     print(f"  finish_reason: {finish}")
     print(f"  raw text:      {text!r}")
 
@@ -137,8 +142,8 @@ def part_c_truncation(client) -> None:
         print("  note:          it fenced the JSON despite being told not to.")
 
     # TODO 2 -------------------------------------------------------------
-    #   Set MAX_TOKENS at the top of this file to 10 and re-run. The JSON
-    #   stops mid-structure and json.loads fails.
+    #   TRUNCATION_MAX_TOKENS is set to 10 above. The JSON stops mid-structure
+    #   and json.loads fails.
     #
     #   Read finish_reason before blaming the model. It says "length": the
     #   model returned good JSON, and you cut it off.
