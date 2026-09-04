@@ -128,8 +128,7 @@ messages = [
 
 # TODO 4, part 1 of 2 — uncomment this line. It starts out False, and TODO 4
 # part 2 sets it to True. See the bottom of the file.
-#
-#     finished = False
+finished = False
 
 
 for step in range(1, MAX_STEPS + 1):
@@ -154,6 +153,7 @@ for step in range(1, MAX_STEPS + 1):
     # AFTER: the `(sending N messages)` number starts growing instead of
     # sitting at 2.
     # ======================================================================
+    messages.append(reply)
 
     # ======================================================================
     # TODO 2 — leave the loop when the model is done. Type these three lines,
@@ -170,6 +170,10 @@ for step in range(1, MAX_STEPS + 1):
     # AFTER: once TODO 3 is done too, the run stops on its own and prints the
     # answer, instead of always using all 6 steps.
     # ======================================================================
+    if not reply.tool_calls:
+        print(f"      -> {' '.join(reply.content.split())}")
+        finished = True
+        break
 
     # ======================================================================
     # TODO 3 — run the tool the model asked for, and add the result. Type:
@@ -185,6 +189,9 @@ for step in range(1, MAX_STEPS + 1):
     # AFTER: the [tool] lines appear, and step 2 asks for a DIFFERENT tool
     # than step 1 — because it finally learned something.
     # ======================================================================
+    for call in reply.tool_calls:
+        result = BY_NAME[call["name"]].invoke(call["args"])
+        messages.append(ToolMessage(result, tool_call_id=call["id"]))
 
     # Delete this line once TODO 3 works.
     print("      (nothing appended — step 6 will send what step 1 sent)")
@@ -199,13 +206,11 @@ banner("DONE")
 #     finished = True
 #
 # then uncomment this block:
-#
-#     if finished:
-#         print("  Ended: the model stopped asking for tools. "
-#               "That is an answer.")
-#     else:
-#         print(f"  Ended: MAX_STEPS ({MAX_STEPS}) stopped it, mid-thought.")
-#
+if finished:
+    print("  Ended: the model stopped asking for tools. "
+          "That is an answer.")
+else:
+    print(f"  Ended: MAX_STEPS ({MAX_STEPS}) stopped it, mid-thought.")
 # WHY: both endings leave text in `messages`, and only one of them is an
 # answer. Code that cannot tell them apart will hand a half-finished thought
 # to a user and call it a result.
