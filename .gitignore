@@ -4,6 +4,12 @@
 lab/.env
 *.pem
 credentials
+**/.env
+**/*session*.json
+**/*storage*.json
+**/*.sqlite
+**/*.sqlite3
+**/.streamlit/secrets.toml
 
 # ---- environments and caches ------------------------------------------
 lab/.venv/

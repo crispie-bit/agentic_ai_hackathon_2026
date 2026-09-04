@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from agentic_system.config import NTULEARN_BASE_URL
+
 try:
     from playwright.sync_api import sync_playwright
 except ImportError:  # pragma: no cover
@@ -26,7 +28,7 @@ class NTULearnBrowser:
         browser._agentic_playwright = playwright
         context = browser.new_context(storage_state=self.storage_state_path.read_text(encoding="utf-8") if self.storage_state_path.exists() else None)
         page = context.new_page()
-        page.goto("https://learning.ntu.edu.sg/")
+        page.goto(NTULEARN_BASE_URL)
         page.wait_for_load_state("networkidle")
         context.storage_state(path=str(self.storage_state_path))
         return browser

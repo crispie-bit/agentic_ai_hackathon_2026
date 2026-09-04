@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any, Callable
 
+from agentic_system.config import NTULEARN_BASE_URL
 from agentic_system.services.course_memory import CourseMemoryStore
 from agentic_system.services.ntulearn_browser import NTULearnBrowser
 
@@ -18,7 +19,7 @@ class NTULearnCourseSyncService:
         browser = self.browser_factory()
         page = browser.new_page() if hasattr(browser, "new_page") else browser
 
-        page.goto("https://learning.ntu.edu.sg/")
+        page.goto(NTULEARN_BASE_URL)
         if hasattr(page, "wait_for_load_state"):
             page.wait_for_load_state("networkidle")
 

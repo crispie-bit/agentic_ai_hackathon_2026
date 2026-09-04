@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from agentic_system.config import NTULEARN_BASE_URL
+
 try:
     from playwright.sync_api import sync_playwright
 except ImportError:  # pragma: no cover
@@ -34,7 +36,7 @@ def login_to_ntulearn(storage_state_path: str | None = None, headless: bool = Fa
         browser._agentic_playwright = playwright
         context = browser.new_context(storage_state=target.read_text(encoding="utf-8") if target.exists() else None)
         page = context.new_page()
-        page.goto("https://learning.ntu.edu.sg/")
+        page.goto(NTULEARN_BASE_URL)
         page.wait_for_load_state("networkidle")
         context.storage_state(path=str(target))
         return browser
@@ -44,7 +46,7 @@ def login_to_ntulearn(storage_state_path: str | None = None, headless: bool = Fa
         browser = playwright.chromium.launch(headless=headless)
         context = browser.new_context(storage_state=target.read_text(encoding="utf-8") if target.exists() else None)
         page = context.new_page()
-        page.goto("https://learning.ntu.edu.sg/")
+        page.goto(NTULEARN_BASE_URL)
         page.wait_for_load_state("networkidle")
         context.storage_state(path=str(target))
         return browser
