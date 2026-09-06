@@ -114,6 +114,15 @@ else:
                 preparation.mark_task_complete(task.title)
                 st.success(f"Marked complete: {task.title}")
                 st.rerun()
+            new_due = st.text_input(
+                "New due label",
+                key=f"due-{task.title}",
+                placeholder="e.g. Tuesday 17:00",
+            )
+            if st.button("Reschedule", key=f"reschedule-{task.title}", disabled=not new_due.strip()):
+                preparation.reschedule_task(task.title, new_due.strip())
+                st.success(f"Rescheduled: {task.title}")
+                st.rerun()
     else:
         st.info("No structured tasks found yet. Sync course content or load demo data first.")
 

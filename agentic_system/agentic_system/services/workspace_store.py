@@ -100,3 +100,17 @@ class WorkspaceStore:
                 "SELECT title FROM task_actions WHERE status = 'completed'"
             ).fetchall()
         return {str(row[0]) for row in rows}
+
+    def reschedule_task(self, title: str, new_due_label: str) -> None:
+        with sqlite3.connect(self.db_path) as connection:
+            connection.execute(
+                "INSERT OR REPLACE INTO task_actions (title, status) VALUES (?, ?)",
+                (title, f"rescheduled:{new_due_label}"),
+            )
+
+    def rescheduled_tasks(self) -> dict[str, str]:
+        with sqlite3.connect(self.db_path) as connection:
+            rows = connection.execute(
+                "SELECT title, status FROM task_actions WHERE status LIKE 'rescheduled:%'"
+            ).fetchall()
+        return {str(title): str(status).removeprefix("rescheduled:") for title, status in rows}

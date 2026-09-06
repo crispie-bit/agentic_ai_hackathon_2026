@@ -88,7 +88,7 @@ class WorkspacePreparation:
     def get_tasks(self) -> list[WorkdayTask]:
         """Return structured tasks available to the workday dashboard."""
         if self.store.search("DEMO-COURSE-101"):
-            return demo_tasks(self.store.completed_tasks())
+            return demo_tasks(self.store.completed_tasks(), self.store.rescheduled_tasks())
         return []
 
     def mark_task_complete(self, title: str) -> bool:
@@ -96,4 +96,10 @@ class WorkspacePreparation:
         if title not in {task.title for task in self.get_tasks()}:
             return False
         self.store.mark_task_complete(title)
+        return True
+
+    def reschedule_task(self, title: str, new_due_label: str) -> bool:
+        if title not in {task.title for task in self.get_tasks()}:
+            return False
+        self.store.reschedule_task(title, new_due_label)
         return True

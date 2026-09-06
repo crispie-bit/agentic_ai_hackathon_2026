@@ -41,6 +41,15 @@ def run_lead_loop(question: str, preparation: WorkspacePreparation, model: Any) 
         return f"Task not found in the current workspace: {task_title}"
 
     @tool
+    def reschedule_task(task_title: str, new_due_label: str, approved: bool = False) -> str:
+        """Reschedule a known task only after explicit student approval."""
+        if not approved:
+            return "Approval required before changing task timing. Ask the student to confirm."
+        if preparation.reschedule_task(task_title, new_due_label):
+            return f"Rescheduled task: {task_title} -> {new_due_label}"
+        return f"Task not found in the current workspace: {task_title}"
+
+    @tool
     def ask_course_specialist(question: str) -> str:
         """Delegate course, assignment, lecture, or deadline questions to the course specialist."""
         return run_course_specialist(question, preparation, model)
@@ -55,6 +64,7 @@ def run_lead_loop(question: str, preparation: WorkspacePreparation, model: Any) 
         search_workspace,
         get_available_time,
         mark_task_complete,
+        reschedule_task,
         ask_course_specialist,
         ask_inbox_specialist,
     ]

@@ -48,3 +48,14 @@ def test_marking_task_complete_updates_available_tasks(tmp_path):
     title = preparation.get_tasks()[0].title
     assert preparation.mark_task_complete(title) is True
     assert title not in {task.title for task in preparation.get_tasks()}
+
+
+def test_rescheduling_task_updates_planner_deadline(tmp_path):
+    preparation = WorkspacePreparation(WorkspaceStore(str(tmp_path / "demo.sqlite")))
+    preparation.load_demo_data()
+    title = preparation.get_tasks()[0].title
+
+    assert preparation.reschedule_task(title, "Tuesday 17:00") is True
+    updated = {task.title: task for task in preparation.get_tasks()}
+
+    assert updated[title].due_label == "Tuesday 17:00"

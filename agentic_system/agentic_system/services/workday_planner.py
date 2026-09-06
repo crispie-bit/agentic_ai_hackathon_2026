@@ -13,7 +13,10 @@ class WorkdayTask:
     action: str
 
 
-def demo_tasks(completed_titles: set[str] | None = None) -> list[WorkdayTask]:
+def demo_tasks(
+    completed_titles: set[str] | None = None,
+    rescheduled: dict[str, str] | None = None,
+) -> list[WorkdayTask]:
     """Return fictional tasks for the submission-safe demo flow."""
     tasks = [
         WorkdayTask(
@@ -42,7 +45,19 @@ def demo_tasks(completed_titles: set[str] | None = None) -> list[WorkdayTask]:
         ),
     ]
     completed = completed_titles or set()
-    return [task for task in tasks if task.title not in completed]
+    updated_due = rescheduled or {}
+    return [
+        WorkdayTask(
+            task.title,
+            updated_due.get(task.title, task.due_label),
+            task.estimated_minutes,
+            task.priority,
+            task.source,
+            task.action,
+        )
+        for task in tasks
+        if task.title not in completed
+    ]
 
 
 def rank_tasks(tasks: list[WorkdayTask]) -> list[WorkdayTask]:
