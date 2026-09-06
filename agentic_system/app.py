@@ -5,7 +5,7 @@ from pathlib import Path
 import streamlit as st
 from dotenv import load_dotenv
 
-from agentic_system.services.answering import answer_question
+from agentic_system.services.answering import answer_mode, answer_question
 from agentic_system.services.azure_setup import azure_status
 from agentic_system.services.aws_setup import aws_status
 from agentic_system.services.preparation import WorkspacePreparation
@@ -42,6 +42,7 @@ with st.sidebar:
     st.write(f"{'OK' if st.session_state.ntulearn_ready else '!!'} NTULearn session")
     st.write(f"{'OK' if st.session_state.outlook_ready else '!!'} Outlook session")
     st.write(f"{'OK' if st.session_state.demo_ready else '--'} Demo data")
+    st.caption(f"Answer engine: {answer_mode()}")
     counts = store.counts()
     st.caption(f"Indexed: {counts.get('ntulearn', 0)} course items, {counts.get('outlook', 0)} emails")
 
