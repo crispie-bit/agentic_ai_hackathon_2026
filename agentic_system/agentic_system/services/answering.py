@@ -2,9 +2,16 @@ from __future__ import annotations
 
 import os
 
+from pydantic import BaseModel, Field
+
 from agentic_system.config import GROQ_MODEL
 from agentic_system.services.preparation import WorkspacePreparation
 from agentic_system.services.workday_planner import rank_tasks
+
+
+class LeadDecision(BaseModel):
+    task_title: str = Field(description="One exact task title from the supplied workspace tasks")
+    reason: str = Field(description="A concise reason grounded in deadline, effort, or priority")
 
 
 def answer_mode() -> str:
@@ -42,16 +49,24 @@ def _model_answer(question: str, preparation: WorkspacePreparation) -> str:
         f"- {task.title}; due {task.due_label}; effort {task.estimated_minutes} minutes; priority {task.priority}; action: {task.action}"
         for task in tasks
     ) or "No structured tasks are currently available."
-    model = ChatGroq(model=GROQ_MODEL, temperature=0, max_tokens=300)
-    response = model.invoke([
+    model = ChatGroq(model=GROQ_MODEL, temperature=0, max_tokens=300).with_structured_output(LeadDecision)
+    decision = model.invoke([
         SystemMessage(
             "You are the lead student workday agent. Use only the supplied workspace facts. "
-            "Answer concisely. State the recommendation and a short reason based on deadline, "
-            "effort, or priority. Do not invent tasks or dates."
+            "Choose exactly one task title from the list. Do not invent tasks or dates. "
+            "Return a concise reason based on deadline, effort, or priority."
         ),
         HumanMessage(f"Workspace tasks:\n{context}\n\nStudent question: {question}"),
     ])
-    return str(response.content).strip()
+    known_tasks = {task.title: task for task in tasks}
+    task = known_tasks.get(decision.task_title)
+    if task is None:
+        raise ValueError("Model selected a task that was not in the workspace")
+    return (
+        f"**Recommendation:** Start with **{task.title}** — due {task.due_label}.\n\n"
+        f"**Why:** {decision.reason}\n\n"
+        f"**Action:** {task.action}"
+    )
 
 
 def answer_question(question: str, preparation: WorkspacePreparation) -> str:
