@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 ENV_FILE = ROOT_DIR / ".env"
+NTULEARN_SESSION_PATH = ROOT_DIR / "ntulearn_session.json"
 
 load_dotenv(ENV_FILE, override=False)
 

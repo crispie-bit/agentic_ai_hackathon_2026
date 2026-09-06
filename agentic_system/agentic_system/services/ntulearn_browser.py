@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from agentic_system.config import NTULEARN_BASE_URL
+from agentic_system.config import NTULEARN_BASE_URL, NTULEARN_SESSION_PATH
 
 try:
     from playwright.sync_api import sync_playwright
@@ -14,7 +14,7 @@ class NTULearnBrowser:
     """Thin Playwright wrapper for authenticated NTULearn access and page traversal."""
 
     def __init__(self, storage_state_path: str | None = None):
-        self.storage_state_path = Path(storage_state_path) if storage_state_path else Path(__file__).resolve().parents[1] / "ntulearn_session.json"
+        self.storage_state_path = Path(storage_state_path) if storage_state_path else NTULEARN_SESSION_PATH
         self.storage_state_path.parent.mkdir(parents=True, exist_ok=True)
 
     def open_headed_session(self, headless: bool = False):
@@ -35,7 +35,7 @@ class NTULearnBrowser:
 
     def open_authenticated_page(self, url: str, headless: bool = False):
         browser = self.open_headed_session(headless=headless)
-        page = browser.new_page()
+        page = browser.contexts[0].new_page()
         page.goto(url)
         page.wait_for_load_state("networkidle")
         return browser, page

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from agentic_system.config import NTULEARN_BASE_URL
+from agentic_system.config import NTULEARN_BASE_URL, NTULEARN_SESSION_PATH
 
 try:
     from playwright.sync_api import sync_playwright
@@ -26,7 +26,7 @@ def login_to_ntulearn(storage_state_path: str | None = None, headless: bool = Fa
             "Playwright is not installed. Install it with: pip install playwright && python -m playwright install chromium"
         )
 
-    target = Path(storage_state_path) if storage_state_path else Path(__file__).resolve().parents[1] / "ntulearn_session.json"
+    target = Path(storage_state_path) if storage_state_path else NTULEARN_SESSION_PATH
     target.parent.mkdir(parents=True, exist_ok=True)
 
     manager = sync_playwright()
@@ -54,7 +54,7 @@ def login_to_ntulearn(storage_state_path: str | None = None, headless: bool = Fa
 
 def save_ntulearn_session(browser, storage_state_path: str | None = None) -> None:
     """Persist cookies after the user completes the visible NTULearn SSO flow."""
-    target = Path(storage_state_path) if storage_state_path else Path(__file__).resolve().parents[1] / "ntulearn_session.json"
+    target = Path(storage_state_path) if storage_state_path else NTULEARN_SESSION_PATH
     contexts = getattr(browser, "contexts", [])
     if not contexts:
         raise RuntimeError("The NTULearn browser session is no longer available.")

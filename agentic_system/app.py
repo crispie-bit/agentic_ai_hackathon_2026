@@ -12,6 +12,7 @@ from agentic_system.services.preparation import WorkspacePreparation
 from agentic_system.services.speech_service import speech_ready, speak, transcribe_audio
 from agentic_system.services.workspace_store import WorkspaceStore
 from agentic_system.services.workday_planner import rank_tasks
+from agentic_system.config import NTULEARN_SESSION_PATH
 from agentic_system.tools.ntulearn_tool import login_to_ntulearn, save_ntulearn_session
 
 load_dotenv(Path(__file__).resolve().parent / ".env", override=False)
@@ -20,7 +21,7 @@ st.set_page_config(page_title="Agentic Workday OS", page_icon="A", layout="wide"
 if "ntulearn_browser" not in st.session_state:
     st.session_state.ntulearn_browser = None
 if "ntulearn_ready" not in st.session_state:
-    st.session_state.ntulearn_ready = Path(__file__).with_name("ntulearn_session.json").exists()
+    st.session_state.ntulearn_ready = NTULEARN_SESSION_PATH.exists()
 if "outlook_ready" not in st.session_state:
     st.session_state.outlook_ready = False
 if "prepared" not in st.session_state:
@@ -65,14 +66,19 @@ if not st.session_state.prepared:
     with first:
         if st.button("Open NTULearn login", type="primary", disabled=st.session_state.ntulearn_browser is not None):
             try:
-                st.session_state.ntulearn_browser = login_to_ntulearn(headless=False)
+                st.session_state.ntulearn_browser = login_to_ntulearn(
+                    storage_state_path=str(NTULEARN_SESSION_PATH), headless=False
+                )
                 st.rerun()
             except Exception as exc:
                 st.error(f"Could not open NTULearn: {exc}")
     with second:
         if st.button("Save NTULearn login", disabled=st.session_state.ntulearn_browser is None):
             try:
-                save_ntulearn_session(st.session_state.ntulearn_browser)
+                save_ntulearn_session(
+                    st.session_state.ntulearn_browser,
+                    storage_state_path=str(NTULEARN_SESSION_PATH),
+                )
                 st.session_state.ntulearn_ready = True
                 st.session_state.ntulearn_browser.close()
                 st.session_state.ntulearn_browser = None

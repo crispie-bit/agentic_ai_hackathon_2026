@@ -17,13 +17,20 @@ class NTULearnCourseSyncService:
 
     def sync_current_courses(self, *, semester: str = "current") -> list[dict[str, Any]]:
         browser = self.browser_factory()
-        page = browser.new_page() if hasattr(browser, "new_page") else browser
+        opened_browser = None
+        if isinstance(browser, NTULearnBrowser):
+            opened_browser, page = browser.open_authenticated_page(NTULEARN_BASE_URL)
+        else:
+            page = browser.new_page() if hasattr(browser, "new_page") else browser
+            page.goto(NTULEARN_BASE_URL)
+            if hasattr(page, "wait_for_load_state"):
+                page.wait_for_load_state("networkidle")
 
-        page.goto(NTULEARN_BASE_URL)
-        if hasattr(page, "wait_for_load_state"):
-            page.wait_for_load_state("networkidle")
-
-        discovered = self._discover_materials(page)
+        try:
+            discovered = self._discover_materials(page)
+        finally:
+            if opened_browser is not None:
+                opened_browser.close()
         if not discovered:
             return []
 
