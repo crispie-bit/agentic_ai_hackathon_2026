@@ -32,6 +32,15 @@ def run_lead_loop(question: str, preparation: WorkspacePreparation, model: Any) 
         return json.dumps({"available_minutes": 30, "constraint": "student requested a short focus block"})
 
     @tool
+    def mark_task_complete(task_title: str, approved: bool = False) -> str:
+        """Mark a known task complete only after explicit student approval."""
+        if not approved:
+            return "Approval required before changing task state. Ask the student to confirm."
+        if preparation.mark_task_complete(task_title):
+            return f"Marked task complete: {task_title}"
+        return f"Task not found in the current workspace: {task_title}"
+
+    @tool
     def ask_course_specialist(question: str) -> str:
         """Delegate course, assignment, lecture, or deadline questions to the course specialist."""
         return run_course_specialist(question, preparation, model)
@@ -45,6 +54,7 @@ def run_lead_loop(question: str, preparation: WorkspacePreparation, model: Any) 
         get_workday_tasks,
         search_workspace,
         get_available_time,
+        mark_task_complete,
         ask_course_specialist,
         ask_inbox_specialist,
     ]

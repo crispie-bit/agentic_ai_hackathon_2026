@@ -39,3 +39,12 @@ def test_offline_answer_recommends_highest_priority_task(tmp_path, monkeypatch):
     assert answer_mode() == "Offline planner"
     assert "Recommendation" in answer
     assert "DEMO-COURSE-101" in answer
+
+
+def test_marking_task_complete_updates_available_tasks(tmp_path):
+    preparation = WorkspacePreparation(WorkspaceStore(str(tmp_path / "demo.sqlite")))
+    preparation.load_demo_data()
+
+    title = preparation.get_tasks()[0].title
+    assert preparation.mark_task_complete(title) is True
+    assert title not in {task.title for task in preparation.get_tasks()}

@@ -13,9 +13,9 @@ class WorkdayTask:
     action: str
 
 
-def demo_tasks() -> list[WorkdayTask]:
+def demo_tasks(completed_titles: set[str] | None = None) -> list[WorkdayTask]:
     """Return fictional tasks for the submission-safe demo flow."""
-    return [
+    tasks = [
         WorkdayTask(
             title="DEMO-COURSE-101 project checkpoint",
             due_label="Monday 17:00",
@@ -41,6 +41,8 @@ def demo_tasks() -> list[WorkdayTask]:
             action="Attend the database lecture in LT-2 and capture follow-up work.",
         ),
     ]
+    completed = completed_titles or set()
+    return [task for task in tasks if task.title not in completed]
 
 
 def rank_tasks(tasks: list[WorkdayTask]) -> list[WorkdayTask]:

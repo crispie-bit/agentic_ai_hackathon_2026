@@ -27,6 +27,13 @@ class WorkspaceStore:
                 )"""
             )
             connection.execute("CREATE INDEX IF NOT EXISTS idx_sources_type ON sources(source_type)")
+            connection.execute(
+                """CREATE TABLE IF NOT EXISTS task_actions (
+                    title TEXT PRIMARY KEY,
+                    status TEXT NOT NULL,
+                    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+                )"""
+            )
 
     def add_source(self, *, source_type: str, title: str, content: str, metadata: str = "") -> int:
         with sqlite3.connect(self.db_path) as connection:
@@ -79,3 +86,17 @@ class WorkspaceStore:
         with sqlite3.connect(self.db_path) as connection:
             rows = connection.execute("SELECT source_type, COUNT(*) FROM sources GROUP BY source_type").fetchall()
         return {str(source_type): int(count) for source_type, count in rows}
+
+    def mark_task_complete(self, title: str) -> None:
+        with sqlite3.connect(self.db_path) as connection:
+            connection.execute(
+                "INSERT OR REPLACE INTO task_actions (title, status) VALUES (?, 'completed')",
+                (title,),
+            )
+
+    def completed_tasks(self) -> set[str]:
+        with sqlite3.connect(self.db_path) as connection:
+            rows = connection.execute(
+                "SELECT title FROM task_actions WHERE status = 'completed'"
+            ).fetchall()
+        return {str(row[0]) for row in rows}

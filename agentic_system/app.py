@@ -110,6 +110,10 @@ else:
         for task in tasks:
             st.markdown(f"**{task.title}** · due {task.due_label} · {task.estimated_minutes} min")
             st.caption(f"{task.source} · {task.action}")
+            if st.button("Mark complete", key=f"complete-{task.title}"):
+                preparation.mark_task_complete(task.title)
+                st.success(f"Marked complete: {task.title}")
+                st.rerun()
     else:
         st.info("No structured tasks found yet. Sync course content or load demo data first.")
 

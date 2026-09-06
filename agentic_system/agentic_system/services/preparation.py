@@ -88,5 +88,12 @@ class WorkspacePreparation:
     def get_tasks(self) -> list[WorkdayTask]:
         """Return structured tasks available to the workday dashboard."""
         if self.store.search("DEMO-COURSE-101"):
-            return demo_tasks()
+            return demo_tasks(self.store.completed_tasks())
         return []
+
+    def mark_task_complete(self, title: str) -> bool:
+        """Persist completion only for a known current task."""
+        if title not in {task.title for task in self.get_tasks()}:
+            return False
+        self.store.mark_task_complete(title)
+        return True
