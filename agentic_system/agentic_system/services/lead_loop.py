@@ -7,6 +7,7 @@ from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tools import tool
 
 from agentic_system.services.preparation import WorkspacePreparation
+from agentic_system.services.specialists import run_course_specialist, run_inbox_specialist
 
 
 MAX_STEPS = 4
@@ -25,14 +26,26 @@ def run_lead_loop(question: str, preparation: WorkspacePreparation, model: Any) 
         """Search grounded course and calendar records for a specific question."""
         return json.dumps(preparation.store.search(query, limit=5))
 
-    tools = [get_workday_tasks, search_workspace]
+    @tool
+    def ask_course_specialist(question: str) -> str:
+        """Delegate course, assignment, lecture, or deadline questions to the course specialist."""
+        return run_course_specialist(question, preparation, model)
+
+    @tool
+    def ask_inbox_specialist(question: str) -> str:
+        """Delegate email, meeting, or reminder questions to the inbox specialist."""
+        return run_inbox_specialist(question, preparation, model)
+
+    tools = [get_workday_tasks, search_workspace, ask_course_specialist, ask_inbox_specialist]
     by_name = {tool_item.name: tool_item for tool_item in tools}
     bound_model = model.bind_tools(tools)
     messages = [
         SystemMessage(
             "You are the lead student workday agent. Work in a bounded loop. "
             "Use get_workday_tasks for planning questions and search_workspace for "
-            "specific course facts. After observing tool results, answer concisely "
+            "specific facts. Delegate course questions to ask_course_specialist and "
+            "email or meeting questions to ask_inbox_specialist. After observing "
+            "tool results, answer concisely "
             "with a recommendation and reason. Never invent tasks, dates, or sources."
         ),
         HumanMessage(question),

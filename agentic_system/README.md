@@ -97,3 +97,21 @@ in the private `.env`. It sends the student question and ranked workspace tasks
 to a concise lead-agent prompt. Without a key, the same interface uses the
 deterministic offline planner, so the demo remains runnable without cloud
 access. Bedrock can replace Groq after `bedrock:InvokeModel` is permitted.
+
+### Agent collaboration
+
+With a Groq key, the lead agent can delegate within its bounded loop:
+
+```text
+student question
+	-> lead agent
+	-> course specialist for assignments/deadlines/lectures
+	-> inbox specialist for meetings/reminders/messages
+	-> lead synthesises grounded findings
+```
+
+The course and inbox specialists receive only their relevant source records.
+This is intentionally implemented before adding more framework layers, so the
+team can observe the model/tool/observation/delegation flow directly. Bedrock
+is a provider swap for these model calls, not a prerequisite for proving the
+workflow. The AWS account must first allow `bedrock:InvokeModel`.

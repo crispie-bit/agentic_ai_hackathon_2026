@@ -10,7 +10,7 @@ from agentic_system.services.workday_planner import rank_tasks
 
 def answer_mode() -> str:
     """Report whether questions use the model or the offline planner."""
-    return "Groq lead agent loop" if os.getenv("GROQ_API_KEY") else "Offline planner"
+    return "Groq lead + specialist agents" if os.getenv("GROQ_API_KEY") else "Offline planner"
 
 
 def _offline_answer(question: str, preparation: WorkspacePreparation) -> str:
