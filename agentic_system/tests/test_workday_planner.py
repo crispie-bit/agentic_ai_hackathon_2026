@@ -1,4 +1,6 @@
 from agentic_system.services.workday_planner import WorkdayTask, rank_tasks
+from agentic_system.services.preparation import WorkspacePreparation
+from agentic_system.services.workspace_store import WorkspaceStore
 
 
 def test_rank_tasks_prioritises_urgent_work_and_shorter_ties():
@@ -15,3 +17,12 @@ def test_rank_tasks_prioritises_urgent_work_and_shorter_ties():
         "long urgent",
         "short normal",
     ]
+
+
+def test_demo_answers_natural_language_questions(tmp_path):
+    preparation = WorkspacePreparation(WorkspaceStore(str(tmp_path / "demo.sqlite")))
+    preparation.load_demo_data()
+
+    answer = preparation.answer("What is happening on Monday?")
+
+    assert "Monday" in answer

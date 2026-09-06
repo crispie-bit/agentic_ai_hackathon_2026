@@ -55,19 +55,25 @@ class WorkspaceStore:
         terms = [term.strip().lower() for term in query.split() if term.strip()]
         if not terms:
             return []
-        clauses = " AND ".join("(LOWER(title) LIKE ? OR LOWER(content) LIKE ?)" for _ in terms)
+        clauses = " OR ".join("(LOWER(title) LIKE ? OR LOWER(content) LIKE ?)" for _ in terms)
         params: list[Any] = []
         for term in terms:
             value = f"%{term}%"
             params.extend([value, value])
-        params.append(limit)
         with sqlite3.connect(self.db_path) as connection:
             connection.row_factory = sqlite3.Row
             rows = connection.execute(
-                f"SELECT source_type, title, content, metadata, created_at FROM sources WHERE {clauses} ORDER BY created_at DESC LIMIT ?",
+                f"SELECT source_type, title, content, metadata, created_at FROM sources WHERE {clauses} ORDER BY created_at DESC",
                 params,
             ).fetchall()
-        return [dict(row) for row in rows]
+        ranked = sorted(
+            rows,
+            key=lambda row: sum(
+                term in f"{row['title']} {row['content']}".lower() for term in terms
+            ),
+            reverse=True,
+        )
+        return [dict(row) for row in ranked[:limit]]
 
     def counts(self) -> dict[str, int]:
         with sqlite3.connect(self.db_path) as connection:
