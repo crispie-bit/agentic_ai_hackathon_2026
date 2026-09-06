@@ -6,11 +6,12 @@ from agentic_system.config import GROQ_MODEL
 from agentic_system.services.lead_loop import run_lead_loop
 from agentic_system.services.preparation import WorkspacePreparation
 from agentic_system.services.workday_planner import rank_tasks
+from agentic_system.workday_graph import run_workday_graph
 
 
 def answer_mode() -> str:
     """Report whether questions use the model or the offline planner."""
-    return "Groq lead + specialist agents" if os.getenv("GROQ_API_KEY") else "Offline planner"
+    return "LangGraph + Groq lead/specialists" if os.getenv("GROQ_API_KEY") else "LangGraph offline planner"
 
 
 def _offline_answer(question: str, preparation: WorkspacePreparation) -> str:
@@ -43,6 +44,12 @@ def _model_answer(question: str, preparation: WorkspacePreparation) -> str:
 
 def answer_question(question: str, preparation: WorkspacePreparation) -> str:
     """Return a model-backed grounded response with an offline fallback."""
+    if os.getenv("USE_LANGGRAPH", "true").lower() in {"1", "true", "yes"}:
+        try:
+            responder = _model_answer if os.getenv("GROQ_API_KEY") else _offline_answer
+            return str(run_workday_graph(question, preparation, responder).get("response", ""))
+        except Exception:
+            pass
     if os.getenv("GROQ_API_KEY"):
         try:
             return _model_answer(question, preparation)

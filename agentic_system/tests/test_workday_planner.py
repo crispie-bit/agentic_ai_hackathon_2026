@@ -36,7 +36,7 @@ def test_offline_answer_recommends_highest_priority_task(tmp_path, monkeypatch):
 
     answer = answer_question("What should I do next?", preparation)
 
-    assert answer_mode() == "Offline planner"
+    assert answer_mode() == "LangGraph offline planner"
     assert "Recommendation" in answer
     assert "DEMO-COURSE-101" in answer
 

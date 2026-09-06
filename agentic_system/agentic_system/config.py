@@ -13,6 +13,7 @@ APP_NAME = os.getenv("APP_NAME", "agentic-workday-os")
 APP_MODE = os.getenv("APP_MODE", "setup")
 NTULEARN_BASE_URL = os.getenv("NTULEARN_BASE_URL", "https://ntulearn.ntu.edu.sg/")
 GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
+USE_LANGGRAPH = os.getenv("USE_LANGGRAPH", "true").lower() in {"1", "true", "yes"}
 AWS_REGION = os.getenv("AWS_REGION", "ap-southeast-1")
 AWS_PROFILE = os.getenv("AWS_PROFILE", "default")
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID", "")

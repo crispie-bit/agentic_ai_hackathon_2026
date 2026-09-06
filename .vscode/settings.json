@@ -1,0 +1,10 @@
+{
+    "chat.mcp.serverSampling": {
+        "agentic_ai_hackathon_2026/.vscode/mcp.json: github": {
+            "allowedModels": [
+                "copilot/auto",
+                "copilotcli/auto"
+            ]
+        }
+    }
+}
