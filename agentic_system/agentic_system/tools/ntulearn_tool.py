@@ -16,7 +16,7 @@ except ImportError:  # pragma: no cover
     sync_playwright = None
 
 
-def login_to_ntulearn(storage_state_path: str | None = None, headless: bool = False):
+def login_to_ntulearn(storage_state_path: str | None = None, headless: bool = False) -> bool:
     """Open a visible browser on first startup so the user can complete NTU SSO login.
 
     The browser session is stored to disk for later use so we can reopen the authenticated session without re-logging in.
@@ -38,8 +38,14 @@ def login_to_ntulearn(storage_state_path: str | None = None, headless: bool = Fa
         page = context.new_page()
         page.goto(NTULEARN_BASE_URL)
         page.wait_for_load_state("networkidle")
+        if hasattr(page, "wait_for_url"):
+            page.wait_for_url(
+                lambda url: "login.microsoftonline.com" not in url,
+                timeout=300_000,
+            )
         context.storage_state(path=str(target))
-        return browser
+        browser.close()
+        return True
 
     # Keeps the lightweight fake used by tests compatible with the real flow.
     with manager as playwright:
@@ -48,8 +54,14 @@ def login_to_ntulearn(storage_state_path: str | None = None, headless: bool = Fa
         page = context.new_page()
         page.goto(NTULEARN_BASE_URL)
         page.wait_for_load_state("networkidle")
+        if hasattr(page, "wait_for_url"):
+            page.wait_for_url(
+                lambda url: "login.microsoftonline.com" not in url,
+                timeout=300_000,
+            )
         context.storage_state(path=str(target))
-        return browser
+        browser.close()
+        return True
 
 
 def save_ntulearn_session(browser, storage_state_path: str | None = None) -> None:

@@ -13,13 +13,11 @@ from agentic_system.services.speech_service import speech_ready, speak, transcri
 from agentic_system.services.workspace_store import WorkspaceStore
 from agentic_system.services.workday_planner import rank_tasks
 from agentic_system.config import NTULEARN_SESSION_PATH
-from agentic_system.tools.ntulearn_tool import login_to_ntulearn, save_ntulearn_session
+from agentic_system.tools.ntulearn_tool import login_to_ntulearn
 
 load_dotenv(Path(__file__).resolve().parent / ".env", override=False)
 st.set_page_config(page_title="Agentic Workday OS", page_icon="A", layout="wide")
 
-if "ntulearn_browser" not in st.session_state:
-    st.session_state.ntulearn_browser = None
 if "ntulearn_ready" not in st.session_state:
     st.session_state.ntulearn_ready = NTULEARN_SESSION_PATH.exists()
 if "outlook_ready" not in st.session_state:
@@ -61,30 +59,18 @@ if not st.session_state.prepared:
     st.divider()
     st.caption("Optional live integrations")
     st.subheader("1. NTULearn")
-    st.write("Open the visible browser, complete NTU single sign-on, then save the session.")
-    first, second = st.columns(2)
-    with first:
-        if st.button("Open NTULearn login", type="primary", disabled=st.session_state.ntulearn_browser is not None):
-            try:
-                st.session_state.ntulearn_browser = login_to_ntulearn(
+    st.write("Open the visible browser and complete NTU single sign-on. The session saves automatically after login.")
+    if st.button("Open NTULearn login", type="primary"):
+        try:
+            with st.spinner("Complete NTU SSO in the browser window, then return here..."):
+                login_to_ntulearn(
                     storage_state_path=str(NTULEARN_SESSION_PATH), headless=False
                 )
-                st.rerun()
-            except Exception as exc:
-                st.error(f"Could not open NTULearn: {exc}")
-    with second:
-        if st.button("Save NTULearn login", disabled=st.session_state.ntulearn_browser is None):
-            try:
-                save_ntulearn_session(
-                    st.session_state.ntulearn_browser,
-                    storage_state_path=str(NTULEARN_SESSION_PATH),
-                )
-                st.session_state.ntulearn_ready = True
-                st.session_state.ntulearn_browser.close()
-                st.session_state.ntulearn_browser = None
-                st.success("NTULearn session saved.")
-            except Exception as exc:
-                st.error(f"Could not save NTULearn session: {exc}")
+            st.session_state.ntulearn_ready = True
+            st.success("NTULearn login saved.")
+            st.rerun()
+        except Exception as exc:
+            st.error(f"Could not open NTULearn: {exc}")
 
     st.subheader("2. Outlook")
     if not azure["ready"]:
