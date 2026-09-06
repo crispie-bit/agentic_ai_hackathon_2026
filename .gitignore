@@ -42,3 +42,7 @@ lab/section_6_agentcore/agent/dependencies.hash
 *.pptx
 ~$*
 *_solution.py
+
+# ---- local nested hackathon working dirs ----
+agentic_ai_hackathon_2026/
+agentic_ai_hackathon_2026-1/

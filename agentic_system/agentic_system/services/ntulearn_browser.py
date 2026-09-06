@@ -15,6 +15,12 @@ def _navigate(page, url: str) -> None:
         page.goto(url, wait_until="domcontentloaded", timeout=30_000)
     except TypeError:
         page.goto(url)
+    try:
+        page.wait_for_load_state("networkidle", timeout=60_000)
+    except TypeError:
+        page.wait_for_load_state("networkidle")
+    except Exception:
+        pass
 
 
 class NTULearnBrowser:

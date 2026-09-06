@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from typing import Any, Callable
+from urllib.parse import urljoin, urlsplit
 
 from agentic_system.config import NTULEARN_BASE_URL
 from agentic_system.services.course_memory import CourseMemoryStore
@@ -29,6 +30,10 @@ class NTULearnCourseSyncService:
 
         try:
             discovered = self._discover_materials(page)
+            navigation_targets = self._navigation_targets(discovered)
+            for target in navigation_targets:
+                self._navigate(page, target)
+                discovered.extend(self._discover_materials(page))
         finally:
             if opened_browser is not None:
                 opened_browser.close()
@@ -83,6 +88,12 @@ class NTULearnCourseSyncService:
             except Exception:
                 pass
 
+        body_text = self._safe_body_text(page)
+        if body_text:
+            headings = self._safe_texts(page, "h1, h2, h3")
+            title = headings[0] if headings else "NTULearn page"
+            links.append({"href": getattr(page, "url", "") or "", "title": title, "text": body_text})
+
         downloads = getattr(page, "downloads", None)
         if downloads:
             for item in downloads:
@@ -97,6 +108,44 @@ class NTULearnCourseSyncService:
             href = item.get("href") or ""
             unique[href] = item
         return list(unique.values())
+
+    def _navigation_targets(self, discovered: list[dict[str, Any]]) -> list[str]:
+        targets: list[str] = []
+        for item in discovered:
+            href = item.get("href") or ""
+            path = urlsplit(href).path.lower()
+            if "/ultra/courses/" in path and "/cl/outline" in path:
+                targets.append(href)
+            elif path.rstrip("/") == "/ultra/stream":
+                targets.append(href)
+        return list(dict.fromkeys(targets))
+
+    def _navigate(self, page: Any, url: str) -> None:
+        try:
+            page.goto(url, wait_until="domcontentloaded", timeout=30_000)
+        except TypeError:
+            page.goto(url)
+        try:
+            page.wait_for_load_state("networkidle", timeout=60_000)
+        except TypeError:
+            page.wait_for_load_state("networkidle")
+        except Exception:
+            pass
+
+    def _safe_body_text(self, page: Any) -> str:
+        try:
+            return (page.locator("body").text_content() or "").strip()[:12000]
+        except Exception:
+            return ""
+
+    def _safe_texts(self, page: Any, selector: str) -> list[str]:
+        try:
+            locator = page.locator(selector)
+            if hasattr(locator, "all_text_contents"):
+                return [text.strip() for text in locator.all_text_contents() if text.strip()]
+        except Exception:
+            pass
+        return []
 
     def _safe_get_attribute(self, element: Any, name: str) -> str:
         try:
