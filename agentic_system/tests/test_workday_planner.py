@@ -31,6 +31,7 @@ def test_demo_answers_natural_language_questions(tmp_path):
 
 def test_offline_answer_recommends_highest_priority_task(tmp_path, monkeypatch):
     monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    monkeypatch.setattr("agentic_system.services.answering.AWS_READY", False)
     preparation = WorkspacePreparation(WorkspaceStore(str(tmp_path / "demo.sqlite")))
     preparation.load_demo_data()
 
