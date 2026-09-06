@@ -12,6 +12,7 @@ class WorkdayState(TypedDict, total=False):
     route: str
     records: list[dict[str, Any]]
     response: str
+    context_forwarded: bool  # sentinel so we can verify context was passed
 
 
 def build_workday_graph(preparation: WorkspacePreparation, responder):
@@ -28,10 +29,20 @@ def build_workday_graph(preparation: WorkspacePreparation, responder):
         return {"route": route}
 
     def retrieve_context(state: WorkdayState) -> WorkdayState:
-        return {"records": preparation.store.search(state["question"], limit=8)}
+        records = preparation.store.search(state["question"], limit=8)
+        return {"records": records, "context_forwarded": True}
 
     def reason_and_respond(state: WorkdayState) -> WorkdayState:
-        return {"response": responder(state["question"], preparation)}
+        # Forward pre-retrieved records to the responder if it accepts them.
+        # This fixes the bug where retrieve_context collected records but they
+        # were silently ignored by reason_and_respond.
+        records = state.get("records", [])
+        try:
+            answer = responder(state["question"], preparation, records)
+        except TypeError:
+            # Fallback: responder doesn't accept a third positional arg yet.
+            answer = responder(state["question"], preparation)
+        return {"response": answer}
 
     graph = StateGraph(WorkdayState)
     graph.add_node("route_request", route_request)

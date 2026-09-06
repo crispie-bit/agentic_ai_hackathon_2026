@@ -14,11 +14,18 @@ APP_MODE = os.getenv("APP_MODE", "setup")
 NTULEARN_BASE_URL = os.getenv("NTULEARN_BASE_URL", "https://ntulearn.ntu.edu.sg/")
 GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
 USE_LANGGRAPH = os.getenv("USE_LANGGRAPH", "true").lower() in {"1", "true", "yes"}
-AWS_REGION = os.getenv("AWS_REGION", "ap-southeast-1")
+# us.anthropic.* cross-region inference profiles are hosted in us-east-1.
+AWS_REGION = os.getenv("AWS_REGION", os.getenv("AWS_DEFAULT_REGION", "us-east-1"))
 AWS_PROFILE = os.getenv("AWS_PROFILE", "default")
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID", "")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", "")
 AWS_SESSION_TOKEN = os.getenv("AWS_SESSION_TOKEN", "")
+
+# When explicit keys are provided, remove AWS_PROFILE to avoid botocore ProfileNotFound.
+# This matches the fix Harvey applied after the hackathon credentials were distributed.
+if AWS_ACCESS_KEY_ID and os.environ.get("AWS_PROFILE") == "default":
+    os.environ.pop("AWS_PROFILE", None)
+
 ENABLE_SPEECH = os.getenv("ENABLE_SPEECH", "false").lower() in {"1", "true", "yes"}
 ENABLE_OUTLOOK = os.getenv("ENABLE_OUTLOOK", "false").lower() in {"1", "true", "yes"}
 ENABLE_NTU_LEARN = os.getenv("ENABLE_NTU_LEARN", "false").lower() in {"1", "true", "yes"}
@@ -29,11 +36,13 @@ ENABLE_AWS = (
 
 AWS_READY = APP_MODE.lower() in {"aws", "live", "production"} or ENABLE_AWS
 
+# Use us.anthropic.* cross-region inference profile IDs — these route to whichever
+# AWS region has capacity and avoid the 'model not found' error on hackathon accounts.
 AGENT_MODEL_IDS = {
-    "lead_agent": os.getenv("LEAD_MODEL_ID", "anthropic.claude-3-5-sonnet-20241022-v2:0"),
-    "outlook_agent": os.getenv("OUTLOOK_MODEL_ID", "anthropic.claude-3-5-haiku-20241022-v1:0"),
-    "ntulearn_agent": os.getenv("NTULEARN_MODEL_ID", "anthropic.claude-3-5-haiku-20241022-v1:0"),
-    "voice_agent": os.getenv("VOICE_MODEL_ID", "amazon.nova-micro-v1:0"),
+    "lead_agent": os.getenv("LEAD_MODEL_ID", "us.anthropic.claude-sonnet-4-5-20250929-v1:0"),
+    "outlook_agent": os.getenv("OUTLOOK_MODEL_ID", "us.anthropic.claude-haiku-4-5-20251001-v1:0"),
+    "ntulearn_agent": os.getenv("NTULEARN_MODEL_ID", "us.anthropic.claude-haiku-4-5-20251001-v1:0"),
+    "voice_agent": os.getenv("VOICE_MODEL_ID", "us.anthropic.claude-haiku-4-5-20251001-v1:0"),
 }
 
 AGENT_TOOLS = {

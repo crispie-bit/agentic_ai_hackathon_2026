@@ -7,7 +7,8 @@ from dotenv import load_dotenv
 
 from agentic_system.services.answering import answer_mode, answer_question
 from agentic_system.services.azure_setup import azure_status
-from agentic_system.services.aws_setup import aws_status
+from agentic_system.services.bedrock_client import aws_bedrock_status
+from agentic_system.services.ntulearn_sync import sync_ntulearn_to_store
 from agentic_system.services.preparation import WorkspacePreparation
 from agentic_system.services.speech_service import speech_ready, speak, transcribe_audio
 from agentic_system.services.workspace_store import WorkspaceStore
@@ -30,21 +31,29 @@ if "demo_ready" not in st.session_state:
 store = WorkspaceStore()
 preparation = WorkspacePreparation(store)
 azure = azure_status()
-aws = aws_status()
+aws = aws_bedrock_status()
 
 with st.sidebar:
     st.title("Workday OS")
     st.caption("Personal course and inbox assistant")
     st.divider()
     st.subheader("Connection status")
-    st.write(f"{'OK' if azure['ready'] else '!!'} Microsoft Graph")
-    st.write(f"{'OK' if aws['ready'] else '!!'} AWS credentials")
-    st.write(f"{'OK' if st.session_state.ntulearn_ready else '!!'} NTULearn session")
-    st.write(f"{'OK' if st.session_state.outlook_ready else '!!'} Outlook session")
-    st.write(f"{'OK' if st.session_state.demo_ready else '--'} Demo data")
+    st.write(f"{'✅' if azure['ready'] else '❌'} Microsoft Graph")
+    st.write(f"{'✅' if aws['ready'] else '❌'} AWS Bedrock ({aws.get('region', 'N/A')})")
+    st.write(f"{'✅' if st.session_state.ntulearn_ready else '❌'} NTULearn session")
+    st.write(f"{'✅' if st.session_state.outlook_ready else '❌'} Outlook session")
+    st.write(f"{'✅' if st.session_state.demo_ready else '--'} Demo data")
     st.caption(f"Answer engine: {answer_mode()}")
+    if aws.get("arn"):
+        st.caption(f"ARN: ...{aws['arn'][-30:]}")
     counts = store.counts()
-    st.caption(f"Indexed: {counts.get('ntulearn', 0)} course items, {counts.get('outlook', 0)} emails")
+    courses = store.get_all_courses()
+    announcements = store.get_announcements(limit=1)
+    st.caption(
+        f"Indexed: {counts.get('ntulearn', 0)} workspace items · "
+        f"{len(courses)} courses · "
+        f"{len(store.get_announcements())} announcements"
+    )
 
 st.title("Agentic Workday OS")
 st.caption("Your private workspace, prepared from course and calendar data.")
@@ -85,12 +94,19 @@ if not st.session_state.prepared:
         except Exception as exc:
             st.error(f"Outlook sync failed: {exc}")
 
-    st.subheader("3. Prepare workspace")
-    if st.session_state.ntulearn_ready and st.button("Sync NTULearn course content"):
+    st.subheader("3. Sync course content")
+    if st.session_state.ntulearn_ready and st.button("Sync NTULearn (REST + Playwright)"):
         try:
-            with st.spinner("Reading authenticated course pages and indexing materials..."):
-                count = preparation.run_ntulearn_sync()
-            st.success(f"NTULearn sync complete. Indexed {count} course items.")
+            with st.spinner("Syncing courses and announcements via Blackboard REST API..."):
+                result = sync_ntulearn_to_store(store)
+            if result.get("success"):
+                st.success(
+                    f"Sync complete: {result.get('courses_synced', 0)} courses, "
+                    f"{result.get('announcements_synced', 0)} announcements."
+                    + (f" ({result.get('note', '')})" if result.get("note") else "")
+                )
+            else:
+                st.warning(f"Sync returned: {result.get('error', 'Unknown error.')}")
         except Exception as exc:
             st.error(f"NTULearn sync failed: {exc}")
 

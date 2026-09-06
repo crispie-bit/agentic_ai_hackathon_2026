@@ -5,7 +5,12 @@ from typing import Any, Callable
 
 from agentic_system.services.workspace_store import WorkspaceStore
 from agentic_system.services.ntulearn_sync import NTULearnCourseSyncService
-from agentic_system.services.workday_planner import WorkdayTask, demo_tasks
+from agentic_system.services.workday_planner import (
+    WorkdayTask,
+    db_tasks_as_workday_tasks,
+    demo_tasks,
+    extract_tasks_from_announcements,
+)
 from agentic_system.tools.outlook_tool import fetch_outlook_messages
 
 
@@ -36,6 +41,8 @@ class WorkspacePreparation:
                 content=str(record.get("extracted_text") or record.get("summary") or ""),
                 metadata=str(record.get("source_url") or ""),
             )
+        # Auto-mine tasks from any newly synced announcements.
+        extract_tasks_from_announcements(self.store)
         return len(records)
 
     def load_demo_data(self) -> int:
@@ -86,7 +93,21 @@ class WorkspacePreparation:
         ]
 
     def get_tasks(self) -> list[WorkdayTask]:
-        """Return structured tasks available to the workday dashboard."""
+        """Return structured tasks for the workday dashboard.
+
+        If real NTULearn courses have been synced, return DB-driven tasks scored
+        by ``calculate_priority()``. Otherwise fall back to 3 fictional demo tasks.
+        """
+        # Real data path: at least one course has been synced.
+        if self.store.get_all_courses():
+            tasks = db_tasks_as_workday_tasks(self.store)
+            if tasks:
+                return tasks
+            # Courses present but no tasks yet — mine from announcements.
+            extract_tasks_from_announcements(self.store)
+            return db_tasks_as_workday_tasks(self.store)
+
+        # Demo / offline path.
         if self.store.search("DEMO-COURSE-101"):
             return demo_tasks(self.store.completed_tasks(), self.store.rescheduled_tasks())
         return []
