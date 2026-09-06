@@ -9,6 +9,8 @@ credentials
 **/*storage*.json
 **/*.sqlite
 **/*.sqlite3
+**/*.sqlite-shm
+**/*.sqlite-wal
 **/.streamlit/secrets.toml
 
 # ---- environments and caches ------------------------------------------
