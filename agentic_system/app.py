@@ -24,6 +24,8 @@ if "outlook_ready" not in st.session_state:
     st.session_state.outlook_ready = False
 if "prepared" not in st.session_state:
     st.session_state.prepared = False
+if "demo_ready" not in st.session_state:
+    st.session_state.demo_ready = False
 
 store = WorkspaceStore()
 preparation = WorkspacePreparation(store)
@@ -39,14 +41,23 @@ with st.sidebar:
     st.write(f"{'OK' if aws['ready'] else '!!'} AWS credentials")
     st.write(f"{'OK' if st.session_state.ntulearn_ready else '!!'} NTULearn session")
     st.write(f"{'OK' if st.session_state.outlook_ready else '!!'} Outlook session")
+    st.write(f"{'OK' if st.session_state.demo_ready else '--'} Demo data")
     counts = store.counts()
     st.caption(f"Indexed: {counts.get('ntulearn', 0)} course items, {counts.get('outlook', 0)} emails")
 
 st.title("Agentic Workday OS")
-st.caption("Your private workspace, prepared from NTULearn and Outlook.")
+st.caption("Your private workspace, prepared from course and calendar data.")
 
 if not st.session_state.prepared:
-    st.info("Complete both sign-in steps, then prepare your workspace. Questions stay locked until preparation finishes.")
+    st.info("Use fictional demo data now, or connect NTULearn and Outlook when those integrations are available.")
+    if st.button("Use safe demo data", type="primary"):
+        added = preparation.load_demo_data()
+        st.session_state.demo_ready = True
+        st.session_state.prepared = True
+        st.success(f"Loaded {added} fictional records. No account data was accessed.")
+        st.rerun()
+    st.divider()
+    st.caption("Optional live integrations")
     st.subheader("1. NTULearn")
     st.write("Open the visible browser, complete NTU single sign-on, then save the session.")
     first, second = st.columns(2)

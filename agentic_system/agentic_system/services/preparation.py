@@ -37,6 +37,35 @@ class WorkspacePreparation:
             )
         return len(records)
 
+    def load_demo_data(self) -> int:
+        """Load fictional records so the product can be demonstrated offline."""
+        if self.store.search("DEMO-COURSE-101"):
+            return 0
+
+        records = [
+            {
+                "source_type": "demo_course",
+                "title": "DEMO-COURSE-101 project checkpoint",
+                "content": "Project checkpoint due Monday at 17:00. Estimated effort: 90 minutes. Submit the design outline and test notes.",
+                "metadata": "synthetic",
+            },
+            {
+                "source_type": "demo_calendar",
+                "title": "DEMO timetable: database lecture",
+                "content": "Database lecture on Monday from 10:00 to 12:00 in LT-2.",
+                "metadata": "synthetic",
+            },
+            {
+                "source_type": "demo_inbox",
+                "title": "DEMO group meeting reminder",
+                "content": "Group meeting Monday at 19:00. Bring the draft evaluation plan.",
+                "metadata": "synthetic",
+            },
+        ]
+        for record in records:
+            self.store.add_source(**record)
+        return len(records)
+
     def answer(self, question: str) -> str:
         matches = self.store.search(question)
         if not matches:
