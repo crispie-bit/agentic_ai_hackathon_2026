@@ -34,7 +34,7 @@ def login_to_ntulearn(storage_state_path: str | None = None, headless: bool = Fa
         playwright = manager.start()
         browser = playwright.chromium.launch(headless=headless)
         browser._agentic_playwright = playwright
-        context = browser.new_context(storage_state=target.read_text(encoding="utf-8") if target.exists() else None)
+        context = browser.new_context(storage_state=str(target) if target.exists() else None)
         page = context.new_page()
         page.goto(NTULEARN_BASE_URL)
         page.wait_for_load_state("networkidle")
@@ -50,7 +50,7 @@ def login_to_ntulearn(storage_state_path: str | None = None, headless: bool = Fa
     # Keeps the lightweight fake used by tests compatible with the real flow.
     with manager as playwright:
         browser = playwright.chromium.launch(headless=headless)
-        context = browser.new_context(storage_state=target.read_text(encoding="utf-8") if target.exists() else None)
+        context = browser.new_context(storage_state=str(target) if target.exists() else None)
         page = context.new_page()
         page.goto(NTULEARN_BASE_URL)
         page.wait_for_load_state("networkidle")

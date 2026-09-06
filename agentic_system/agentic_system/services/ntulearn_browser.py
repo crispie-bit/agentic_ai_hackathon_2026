@@ -26,7 +26,7 @@ class NTULearnBrowser:
         playwright = sync_playwright().start()
         browser = playwright.chromium.launch(headless=headless)
         browser._agentic_playwright = playwright
-        context = browser.new_context(storage_state=self.storage_state_path.read_text(encoding="utf-8") if self.storage_state_path.exists() else None)
+        context = browser.new_context(storage_state=str(self.storage_state_path) if self.storage_state_path.exists() else None)
         page = context.new_page()
         page.goto(NTULEARN_BASE_URL)
         page.wait_for_load_state("networkidle")
