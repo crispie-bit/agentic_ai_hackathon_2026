@@ -17,7 +17,7 @@ AGENT_CATALOG = {
     "lead_agent": AgentSpec(
         name="lead_agent",
         role="central orchestrator",
-        model_id="anthropic.claude-3-5-sonnet-20241022-v2:0",
+        model_id="us.anthropic.claude-sonnet-4-5-20250929-v1:0",
         tool_names=["get_workday_tasks", "ask_course_specialist", "ask_inbox_specialist", "response_summarizer"],
         goal="Delegate tasks, decide urgency, and keep the workflow compact.",
         token_budget="medium",
@@ -25,7 +25,7 @@ AGENT_CATALOG = {
     "outlook_agent": AgentSpec(
         name="outlook_agent",
         role="email triage specialist",
-        model_id="anthropic.claude-3-5-haiku-20241022-v1:0",
+        model_id="us.anthropic.claude-haiku-4-5-20251001-v1:0",
         tool_names=["search_workspace", "message_ranker", "summary_shortener"],
         goal="Filter inbox noise and summarize only urgent or actionable messages.",
         token_budget="low",
@@ -33,7 +33,7 @@ AGENT_CATALOG = {
     "ntulearn_agent": AgentSpec(
         name="ntulearn_agent",
         role="course updates specialist",
-        model_id="anthropic.claude-3-5-haiku-20241022-v1:0",
+        model_id="us.anthropic.claude-haiku-4-5-20251001-v1:0",
         tool_names=["search_workspace", "deadline_parser", "announcement_filter"],
         goal="Track deadlines, announcements, and assignment changes with minimal output.",
         token_budget="low",
@@ -41,7 +41,7 @@ AGENT_CATALOG = {
     "voice_agent": AgentSpec(
         name="voice_agent",
         role="voice interface specialist",
-        model_id="amazon.nova-micro-v1:0",
+        model_id="us.anthropic.claude-haiku-4-5-20251001-v1:0",
         tool_names=["speech_to_text", "voice_response_generator"],
         goal="Handle spoken input and produce short spoken responses.",
         token_budget="very_low",

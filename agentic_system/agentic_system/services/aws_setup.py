@@ -20,7 +20,7 @@ def configure_aws_credentials(
     resolved_access_key = (access_key_id or os.getenv("AWS_ACCESS_KEY_ID") or "").strip()
     resolved_secret_key = (secret_key or os.getenv("AWS_SECRET_ACCESS_KEY") or "").strip()
     resolved_session_token = (session_token or os.getenv("AWS_SESSION_TOKEN") or "").strip()
-    resolved_region = (region or os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION") or "ap-southeast-1").strip()
+    resolved_region = (region or os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION") or "us-east-1").strip()
 
     if resolved_access_key:
         os.environ["AWS_ACCESS_KEY_ID"] = resolved_access_key
@@ -50,7 +50,11 @@ def aws_status(
     resolved_access_key = (access_key_id or os.getenv("AWS_ACCESS_KEY_ID") or "").strip()
     resolved_secret_key = (secret_key or os.getenv("AWS_SECRET_ACCESS_KEY") or "").strip()
     resolved_session_token = (session_token or os.getenv("AWS_SESSION_TOKEN") or "").strip()
-    resolved_region = (region or os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION") or "ap-southeast-1").strip()
+    resolved_region = (region or os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION") or "us-east-1").strip()
+
+    if resolved_access_key and resolved_secret_key:
+        if os.environ.get("AWS_PROFILE") == "default":
+            os.environ.pop("AWS_PROFILE", None)
 
     if not resolved_access_key or not resolved_secret_key:
         return {

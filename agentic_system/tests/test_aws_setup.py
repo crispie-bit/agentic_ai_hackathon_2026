@@ -12,7 +12,7 @@ def test_aws_status_validates_real_credentials(monkeypatch):
 
         def client(self, service_name, region_name=None):
             assert service_name == "sts"
-            assert region_name == "ap-southeast-1"
+            assert region_name == "us-east-1"
             return FakeSTSClient()
 
     monkeypatch.setattr("agentic_system.services.aws_setup.boto3", type("FakeBoto3", (), {"Session": FakeSession}))
@@ -21,7 +21,7 @@ def test_aws_status_validates_real_credentials(monkeypatch):
         access_key_id="AKIA_TEST",
         secret_key="secret",
         session_token="token",
-        region="ap-southeast-1",
+        region="us-east-1",
     )
 
     assert status["status"] == "ready"

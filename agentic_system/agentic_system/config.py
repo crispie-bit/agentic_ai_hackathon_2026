@@ -13,7 +13,7 @@ APP_NAME = os.getenv("APP_NAME", "agentic-workday-os")
 APP_MODE = os.getenv("APP_MODE", "setup")
 NTULEARN_BASE_URL = os.getenv("NTULEARN_BASE_URL", "https://ntulearn.ntu.edu.sg/")
 GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
-AWS_REGION = os.getenv("AWS_REGION", "ap-southeast-1")
+AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
 AWS_PROFILE = os.getenv("AWS_PROFILE", "default")
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID", "")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", "")
@@ -29,10 +29,10 @@ ENABLE_AWS = (
 AWS_READY = APP_MODE.lower() in {"aws", "live", "production"} or ENABLE_AWS
 
 AGENT_MODEL_IDS = {
-    "lead_agent": os.getenv("LEAD_MODEL_ID", "anthropic.claude-3-5-sonnet-20241022-v2:0"),
-    "outlook_agent": os.getenv("OUTLOOK_MODEL_ID", "anthropic.claude-3-5-haiku-20241022-v1:0"),
-    "ntulearn_agent": os.getenv("NTULEARN_MODEL_ID", "anthropic.claude-3-5-haiku-20241022-v1:0"),
-    "voice_agent": os.getenv("VOICE_MODEL_ID", "amazon.nova-micro-v1:0"),
+    "lead_agent": os.getenv("LEAD_MODEL_ID", "us.anthropic.claude-sonnet-4-5-20250929-v1:0"),
+    "outlook_agent": os.getenv("OUTLOOK_MODEL_ID", "us.anthropic.claude-haiku-4-5-20251001-v1:0"),
+    "ntulearn_agent": os.getenv("NTULEARN_MODEL_ID", "us.anthropic.claude-haiku-4-5-20251001-v1:0"),
+    "voice_agent": os.getenv("VOICE_MODEL_ID", "us.anthropic.claude-haiku-4-5-20251001-v1:0"),
 }
 
 AGENT_TOOLS = {
