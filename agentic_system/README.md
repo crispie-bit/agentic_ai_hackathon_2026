@@ -80,8 +80,8 @@ builds the student workday assistant on top of the workshop lessons:
 2. Store grounded source records locally and protect runtime data.
 3. Extract structured tasks with due times, effort, priority, and source.
 4. Show the student what matters next and answer grounded questions.
-5. Add model-backed prioritisation and replanning after the deterministic flow
-	is validated.
+5. Run the lead model/tool/observation loop for prioritisation and replanning
+	after the deterministic flow is validated.
 6. Use Bedrock when the account policy permits `bedrock:InvokeModel`.
 7. Add LangGraph/AgentCore only after the core workflow is reliable.
 
