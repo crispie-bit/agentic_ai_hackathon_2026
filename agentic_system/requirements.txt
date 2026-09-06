@@ -6,6 +6,8 @@ msal>=1.29.0
 streamlit>=1.35.0
 SpeechRecognition>=3.10.4
 pyttsx3>=2.90
+langchain-core>=1.5.0
+langchain-groq>=1.1.0
 
 # Keep this minimal for setup-first development.
 # Add model SDKs only when you are ready to use tokens and live inference.

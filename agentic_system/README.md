@@ -89,3 +89,11 @@ The parallel support-triage project on another team branch is useful as a
 source of evaluation, structured-output, and deterministic-tool patterns. It
 is not merged wholesale because its domain and UI are different from this
 student workday product.
+
+### Answer engine
+
+The assistant uses Groq `openai/gpt-oss-20b` when `GROQ_API_KEY` is configured
+in the private `.env`. It sends the student question and ranked workspace tasks
+to a concise lead-agent prompt. Without a key, the same interface uses the
+deterministic offline planner, so the demo remains runnable without cloud
+access. Bedrock can replace Groq after `bedrock:InvokeModel` is permitted.
