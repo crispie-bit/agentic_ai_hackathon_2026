@@ -33,6 +33,24 @@ class FakeModel:
         return AIMessage(content="Start the project checkpoint because it has the highest priority.")
 
 
+class ConstraintFakeModel(FakeModel):
+    def invoke(self, messages):
+        self.calls += 1
+        if self.calls == 1:
+            return AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "get_available_time",
+                        "args": {},
+                        "id": "call-time",
+                        "type": "tool_call",
+                    }
+                ],
+            )
+        return AIMessage(content="Choose the 30-minute group evaluation plan.")
+
+
 def test_lead_loop_calls_tool_then_answers(tmp_path: Path):
     preparation = WorkspacePreparation(WorkspaceStore(str(tmp_path / "demo.sqlite")))
     preparation.load_demo_data()
@@ -42,3 +60,12 @@ def test_lead_loop_calls_tool_then_answers(tmp_path: Path):
 
     assert model.calls == 2
     assert "highest priority" in answer
+
+
+def test_lead_loop_replans_with_available_time(tmp_path: Path):
+    preparation = WorkspacePreparation(WorkspaceStore(str(tmp_path / "demo.sqlite")))
+    preparation.load_demo_data()
+
+    answer = run_lead_loop("I only have 30 minutes. What should I do?", preparation, ConstraintFakeModel())
+
+    assert "30-minute" in answer

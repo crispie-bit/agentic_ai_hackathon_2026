@@ -27,6 +27,11 @@ def run_lead_loop(question: str, preparation: WorkspacePreparation, model: Any) 
         return json.dumps(preparation.store.search(query, limit=5))
 
     @tool
+    def get_available_time() -> str:
+        """Read the student's currently available focus time for replanning."""
+        return json.dumps({"available_minutes": 30, "constraint": "student requested a short focus block"})
+
+    @tool
     def ask_course_specialist(question: str) -> str:
         """Delegate course, assignment, lecture, or deadline questions to the course specialist."""
         return run_course_specialist(question, preparation, model)
@@ -36,13 +41,20 @@ def run_lead_loop(question: str, preparation: WorkspacePreparation, model: Any) 
         """Delegate email, meeting, or reminder questions to the inbox specialist."""
         return run_inbox_specialist(question, preparation, model)
 
-    tools = [get_workday_tasks, search_workspace, ask_course_specialist, ask_inbox_specialist]
+    tools = [
+        get_workday_tasks,
+        search_workspace,
+        get_available_time,
+        ask_course_specialist,
+        ask_inbox_specialist,
+    ]
     by_name = {tool_item.name: tool_item for tool_item in tools}
     bound_model = model.bind_tools(tools)
     messages = [
         SystemMessage(
             "You are the lead student workday agent. Work in a bounded loop. "
-            "Use get_workday_tasks for planning questions and search_workspace for "
+            "Use get_workday_tasks for planning questions, get_available_time when "
+            "the student mentions a time constraint, and search_workspace for "
             "specific facts. Delegate course questions to ask_course_specialist and "
             "email or meeting questions to ask_inbox_specialist. After observing "
             "tool results, answer concisely "
