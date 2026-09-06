@@ -10,6 +10,13 @@ except ImportError:  # pragma: no cover
     sync_playwright = None
 
 
+def _navigate(page, url: str) -> None:
+    try:
+        page.goto(url, wait_until="domcontentloaded", timeout=30_000)
+    except TypeError:
+        page.goto(url)
+
+
 class NTULearnBrowser:
     """Thin Playwright wrapper for authenticated NTULearn access and page traversal."""
 
@@ -28,14 +35,12 @@ class NTULearnBrowser:
         browser._agentic_playwright = playwright
         context = browser.new_context(storage_state=str(self.storage_state_path) if self.storage_state_path.exists() else None)
         page = context.new_page()
-        page.goto(NTULEARN_BASE_URL)
-        page.wait_for_load_state("networkidle")
+        _navigate(page, NTULEARN_BASE_URL)
         context.storage_state(path=str(self.storage_state_path))
         return browser
 
     def open_authenticated_page(self, url: str, headless: bool = False):
         browser = self.open_headed_session(headless=headless)
         page = browser.contexts[0].new_page()
-        page.goto(url)
-        page.wait_for_load_state("networkidle")
+        _navigate(page, url)
         return browser, page

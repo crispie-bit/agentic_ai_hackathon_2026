@@ -16,6 +16,13 @@ except ImportError:  # pragma: no cover
     sync_playwright = None
 
 
+def _navigate(page, url: str) -> None:
+    try:
+        page.goto(url, wait_until="domcontentloaded", timeout=30_000)
+    except TypeError:
+        page.goto(url)
+
+
 def login_to_ntulearn(storage_state_path: str | None = None, headless: bool = False) -> bool:
     """Open a visible browser on first startup so the user can complete NTU SSO login.
 
@@ -36,8 +43,7 @@ def login_to_ntulearn(storage_state_path: str | None = None, headless: bool = Fa
         browser._agentic_playwright = playwright
         context = browser.new_context(storage_state=str(target) if target.exists() else None)
         page = context.new_page()
-        page.goto(NTULEARN_BASE_URL)
-        page.wait_for_load_state("networkidle")
+        _navigate(page, NTULEARN_BASE_URL)
         if hasattr(page, "wait_for_url"):
             page.wait_for_url(
                 lambda url: "login.microsoftonline.com" not in url,
@@ -52,8 +58,7 @@ def login_to_ntulearn(storage_state_path: str | None = None, headless: bool = Fa
         browser = playwright.chromium.launch(headless=headless)
         context = browser.new_context(storage_state=str(target) if target.exists() else None)
         page = context.new_page()
-        page.goto(NTULEARN_BASE_URL)
-        page.wait_for_load_state("networkidle")
+        _navigate(page, NTULEARN_BASE_URL)
         if hasattr(page, "wait_for_url"):
             page.wait_for_url(
                 lambda url: "login.microsoftonline.com" not in url,

@@ -22,9 +22,10 @@ class NTULearnCourseSyncService:
             opened_browser, page = browser.open_authenticated_page(NTULEARN_BASE_URL)
         else:
             page = browser.new_page() if hasattr(browser, "new_page") else browser
-            page.goto(NTULEARN_BASE_URL)
-            if hasattr(page, "wait_for_load_state"):
-                page.wait_for_load_state("networkidle")
+            try:
+                page.goto(NTULEARN_BASE_URL, wait_until="domcontentloaded", timeout=30_000)
+            except TypeError:
+                page.goto(NTULEARN_BASE_URL)
 
         try:
             discovered = self._discover_materials(page)
