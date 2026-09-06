@@ -37,16 +37,9 @@ This project is a setup-first scaffold for a personal productivity system with a
 
 ## Tools to prefer
 
-- Outlook agent: Microsoft Graph API for email queries
-- NTULearn agent: direct fetcher or scraper with strict filtering
-- Voice agent: speech-to-text + text-to-speech wrapper
-- Lead agent: router and planner only, not a general-purpose scraper
 
 ## AWS strategy
 
-- Keep AWS disabled initially.
-- Use Bedrock only when the workflows are validated and you are ready to spend tokens.
-- Start with narrow prompts and short outputs.
 
 ## Setup
 
@@ -63,13 +56,6 @@ Then add your AWS keys to `.env` (private file) and enable only the features you
 
 The Agentic Workday OS now includes a runnable Streamlit interface and staged first-run setup:
 
-- Added a preparation gate that keeps assistant questions locked until platform setup is complete.
-- Added visible NTULearn SSO login with persisted browser storage state.
-- Added Outlook sign-in and Microsoft Graph mailbox ingestion into a local searchable workspace.
-- Added a SQLite-backed workspace index and grounded keyword retrieval for course and email content.
-- Added optional microphone transcription and local text-to-speech responses.
-- Added `run_app.ps1` for Windows launch and expanded `setup_prereqs.py` to install Streamlit, voice packages, and Chromium.
-- Added `MICROSOFT_REDIRECT_URI` to `.env.example` for the Graph authentication configuration.
 
 ### Teammate task summary
 
@@ -84,3 +70,22 @@ Remaining integration task: confirm NTULearn's live course-page selectors and do
 This feature adds the first runnable end-user workflow for the Agentic Workday OS. Users can launch the Streamlit interface, authenticate NTULearn in a visible browser, sign in to Outlook through Microsoft Graph, ingest source data into a local SQLite workspace, and query the indexed content through a preparation-gated assistant. Optional voice input and spoken responses are included, and the prerequisite installer now provisions the UI, voice dependencies, and Playwright Chromium browser.
 
 The workflow requires real AWS credentials, Microsoft Entra app registration values, Microsoft consent, and an NTULearn SSO session. Secrets remain environment-only and are not committed.
+
+## Product progression
+
+This `agentic_system` is the canonical product path for the hackathon team. It
+builds the student workday assistant on top of the workshop lessons:
+
+1. Ingest NTULearn course information; keep Outlook as an optional adapter.
+2. Store grounded source records locally and protect runtime data.
+3. Extract structured tasks with due times, effort, priority, and source.
+4. Show the student what matters next and answer grounded questions.
+5. Add model-backed prioritisation and replanning after the deterministic flow
+	is validated.
+6. Use Bedrock when the account policy permits `bedrock:InvokeModel`.
+7. Add LangGraph/AgentCore only after the core workflow is reliable.
+
+The parallel support-triage project on another team branch is useful as a
+source of evaluation, structured-output, and deterministic-tool patterns. It
+is not merged wholesale because its domain and UI are different from this
+student workday product.

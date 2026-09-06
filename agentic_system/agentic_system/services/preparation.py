@@ -5,6 +5,7 @@ from typing import Any, Callable
 
 from agentic_system.services.workspace_store import WorkspaceStore
 from agentic_system.services.ntulearn_sync import NTULearnCourseSyncService
+from agentic_system.services.workday_planner import WorkdayTask, demo_tasks
 from agentic_system.tools.outlook_tool import fetch_outlook_messages
 
 
@@ -83,3 +84,9 @@ class WorkspacePreparation:
             "What should I prepare for the group meeting?",
             "How much time should I reserve for the project checkpoint?",
         ]
+
+    def get_tasks(self) -> list[WorkdayTask]:
+        """Return structured tasks available to the workday dashboard."""
+        if self.store.search("DEMO-COURSE-101"):
+            return demo_tasks()
+        return []

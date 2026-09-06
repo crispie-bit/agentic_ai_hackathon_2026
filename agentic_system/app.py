@@ -11,6 +11,7 @@ from agentic_system.services.aws_setup import aws_status
 from agentic_system.services.preparation import WorkspacePreparation
 from agentic_system.services.speech_service import speech_ready, speak, transcribe_audio
 from agentic_system.services.workspace_store import WorkspaceStore
+from agentic_system.services.workday_planner import rank_tasks
 from agentic_system.tools.ntulearn_tool import login_to_ntulearn, save_ntulearn_session
 
 load_dotenv(Path(__file__).resolve().parent / ".env", override=False)
@@ -100,14 +101,25 @@ if not st.session_state.prepared:
         except Exception as exc:
             st.error(f"NTULearn sync failed: {exc}")
 
-    can_prepare = st.session_state.ntulearn_ready and st.session_state.outlook_ready
-    if st.button("Prepare and unlock assistant", type="primary", disabled=not can_prepare):
+    can_prepare = st.session_state.ntulearn_ready
+    if st.session_state.ntulearn_ready and not st.session_state.outlook_ready:
+        st.caption("NTULearn-only mode is available. Outlook is optional for this demo.")
+    if st.button("Prepare with NTULearn only", type="primary", disabled=not can_prepare):
         st.session_state.prepared = True
         st.rerun()
     if not can_prepare:
-        st.caption("Both platform sessions must be connected first.")
+        st.caption("Complete NTULearn login and save the session first.")
 else:
     st.success("Workspace prepared. The assistant is ready.")
+    st.subheader("What matters next")
+    tasks = rank_tasks(preparation.get_tasks())
+    if tasks:
+        for task in tasks:
+            st.markdown(f"**{task.title}** · due {task.due_label} · {task.estimated_minutes} min")
+            st.caption(f"{task.source} · {task.action}")
+    else:
+        st.info("No structured tasks found yet. Sync course content or load demo data first.")
+
     question = st.chat_input("Ask about an exam, deadline, email, or document")
     audio = st.audio_input("Or ask by voice")
     if audio is not None:
