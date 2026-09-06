@@ -75,3 +75,11 @@ class WorkspacePreparation:
             excerpt = " ".join(item["content"].split())[:280]
             lines.append(f"**{item['title']}** ({item['source_type']}): {excerpt}")
         return "Here is what I found in your synced workspace:\n\n" + "\n\n".join(lines)
+
+    def follow_up_prompts(self) -> list[str]:
+        """Return safe example questions for the currently indexed workspace."""
+        return [
+            "What is due on Monday?",
+            "What should I prepare for the group meeting?",
+            "How much time should I reserve for the project checkpoint?",
+        ]

@@ -117,6 +117,7 @@ else:
             try:
                 question = transcribe_audio(audio.getvalue(), ".wav")
                 st.info(f"Heard: {question}")
+                st.caption("Voice requests are submitted after the recording is stopped. Follow-up prompts appear below.")
             except Exception as exc:
                 st.error(f"Voice transcription failed: {exc}")
     if question:
@@ -130,6 +131,9 @@ else:
                     st.audio(speak(response), format="audio/wav", autoplay=True)
                 except Exception as exc:
                     st.error(f"Speech output failed: {exc}")
+
+            st.caption("Useful next questions")
+            st.write(" · ".join(preparation.follow_up_prompts()))
 
     st.subheader("Workspace")
     current_counts = store.counts()
