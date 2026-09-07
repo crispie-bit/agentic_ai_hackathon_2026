@@ -100,8 +100,8 @@ class HttpOpenAIClient:
 
 def normalize_groq_model(model_name: Optional[str]) -> str:
     m = (model_name or "").strip()
-    if not m or "openai" in m.lower() or "gpt" in m.lower():
-        return "llama-3.3-70b-versatile"
+    if not m or "llama" in m.lower():
+        return "qwen/qwen3.8-27b"
     return m
 
 from services.aws_bedrock import bedrock_client
