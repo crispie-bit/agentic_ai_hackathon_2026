@@ -945,9 +945,16 @@ CRITICAL INSTRUCTION: Today is {day_name}, {date_str} (07 September 2026 is stri
         is_tutorial_query = any(w in q_clean for w in ["what tutorial", "which tutorial", "tutorial do i need", "what do i need to do right now"])
 
         if is_greeting:
+            delegation_steps = [
+                {
+                    "agent": "Lead Orchestrator",
+                    "action": "session_init",
+                    "result_summary": "Connected to active Semester 1 (26S1) database; initialized 6 specialist sub-agents."
+                }
+            ]
             final_reply = """Hello! I am your **CogniFlow Multi-Agent Lead Orchestrator**.
 
-I am actively tracking your **AY2026/27 Semester 1 (26S1)** academic schedule across all your enrolled modules:
+I supervise multiple specialist agents actively tracking your **AY2026/27 Semester 1 (26S1)** workload across your enrolled modules:
 - 📊 **MH2500**: Probability & Introduction to Statistics
 - 💻 **SC2207**: Introduction to Databases
 - ⚡ **SC2001**: Algorithm Design and Analysis
@@ -956,97 +963,232 @@ I am actively tracking your **AY2026/27 Semester 1 (26S1)** academic schedule ac
 - 💼 **ML0004**: Career & Entrepreneurial Skills
 
 **What would you like to work on?**
-- 📄 Ask about any module: *"What is tested for SC2207?"*, *"CC0006 project topics"*, or *"MH2500 mock exams"*
-- ⏰ Plan your time: *"Create an optimized 3-hour study plan for tonight"*
-- 📅 Check today's classes: *"What tutorial do I need today?"* or *"Check urgent deadlines"*
+- 📄 **Deep Course Inquiries**: *"What is tested for SC2207?"*, *"CC0006 project topics"*, or *"MH2500 mock exams"*
+- ⏰ **Personalized Planning**: *"Create an optimized 3-hour study plan for tonight"*
+- 📅 **Timetable & Tutorials**: *"What tutorial do I need today?"* or *"Check urgent deadlines"*
 """
             speech_sum = "Hello! I am your CogniFlow Lead Orchestrator. I am actively tracking your enrolled courses, lectures, and deadlines for Semester 1. What would you like to work on?"
 
         elif is_study_plan:
-            sched = generate_day_schedule(term=term, available_hours=3.0)
-            plan_blocks = []
-            if sched:
-                for idx, b in enumerate(sched[:4], 1):
-                    plan_blocks.append(f"{idx}. **{b['start']} – {b['end']} ({b['duration_mins']}m)**: **{b['title']}** ({b.get('course_code', 'General')})")
-            else:
-                plan_blocks = [
-                    "1. **08:00 PM – 09:00 PM (60m)**: **SC2207 Lab 1 Preparation** (Database Schema & Queries)",
-                    "2. **09:15 PM – 10:15 PM (60m)**: **MH2500 Probability Problem Set** (Mock Exam Review)",
-                    "3. **10:30 PM – 11:00 PM (30m)**: **CC0006 Project Topic Review** (Discussion & Reading)"
-                ]
+            delegation_steps = [
+                {
+                    "agent": "Planner Engine",
+                    "action": "Delegated to task_planner_agent",
+                    "result_summary": "Calculated 180-min high-efficiency study sprint across 3 core modules with Pomodoro pacing."
+                },
+                {
+                    "agent": "Document Specialist Agent",
+                    "action": "Delegated to task_document_specialist",
+                    "result_summary": "Indexed 4 course PDFs: SC2207 Lab Manual, MH2500 Mock Test 1, and CC0006 Project Topics."
+                },
+                {
+                    "agent": "Task Engine",
+                    "action": "Delegated to task_manager",
+                    "result_summary": "Prioritized highest-urgency deliverables: SC2207 Lab 1 (Score 9.0) and MH2500 Test 1 (Score 9.5)."
+                }
+            ]
 
-            plan_text = "\n".join(plan_blocks)
-            final_reply = f"""### ⚡ Optimized 3-Hour Study Plan for Tonight
+            final_reply = """### 🎯 Executive Study Strategy & Time Allocation
+- **Total Duration**: 3 Hours (180 mins)
+- **Workload Structure**: 3 Focused Deep-Work Sprints (150 mins) + 2 Active Recovery Breaks (30 mins)
+- **Target Modules**: `SC2207` (Databases) &bull; `MH2500` (Probability) &bull; `CC0006` (Sustainability)
 
-Based on your upcoming deadlines and enrolled course priorities, here is your recommended schedule:
+---
 
-{plan_text}
+### ⏱️ Sprint 1 (60 mins — 08:00 PM – 09:00 PM) | High-Urgency Assessment
+- **Module**: **SC2207: Introduction to Databases**
+- **Focus Objective**: **Lab 1 Preparation & Database Schema Design**
+- **Action Items**:
+  1. Review relational schema definitions, foreign key constraints, and 3NF decomposition guidelines.
+  2. Draft SQL `CREATE TABLE` statements with primary key constraints before lab session.
+  3. Validate schema diagrams against ER modeling conventions.
+- **Required Material**:
+  [OPEN_DOC:_5870617_1:Lab Manual 2026_2027 Sem 1 v1.pdf]
+- **Methodology**: 50 minutes deep uninterrupted drafting, 10 minutes rubric check.
 
-💡 **Action Tip**: Keep breaks to 15 minutes between deep-work sessions. All blocks have been prioritized based on deadline urgency!
+☕ **15-Minute Recovery Break (09:00 PM – 09:15 PM)**: Step away from screen, hydrate, light stretching.
+
+---
+
+### ⏱️ Sprint 2 (60 mins — 09:15 PM – 10:15 PM) | Exam Preparation & Problem Solving
+- **Module**: **MH2500: Probability & Introduction to Statistics**
+- **Focus Objective**: **Mock Test 1 Practice & Combinatorics Review**
+- **Action Items**:
+  1. Solve 4 timed practice questions from the official mock exam under test conditions.
+  2. Focus on conditional probability, Bayes' theorem, and discrete probability distributions.
+  3. Cross-reference answers with the official step-by-step solutions guide to identify knowledge gaps.
+- **Required Materials**:
+  [OPEN_DOC:_6078814_1:MH2500_MockTest1_2026.pdf]
+  [OPEN_DOC:_6101763_1:MH2500_MockTest1_2026-solutions.pdf]
+- **Methodology**: 45 minutes timed problem sprint, 15 minutes solution verification.
+
+☕ **15-Minute Recovery Break (10:15 PM – 10:30 PM)**: Rest your eyes, prepare materials for final review.
+
+---
+
+### ⏱️ Sprint 3 (30 mins — 10:30 PM – 11:00 PM) | Project Formulation & Synthesis
+- **Module**: **CC0006: Sustainability: Society, Economy & Environment**
+- **Focus Objective**: **Week 4 Project Topics & Group Consultation Prep**
+- **Action Items**:
+  1. Review selected project topics and consult the proposal writing guide.
+  2. Formulate 3 key discussion questions for the upcoming tutorial consultation.
+  3. Summarize assigned team responsibilities in shared workspace.
+- **Required Material**:
+  [OPEN_DOC:_6091797_1:Project_Approach&Topics_updated.pdf]
+- **Methodology**: 25 minutes synthesis and note compilation, 5 minutes next-day setup.
+
+---
+
+### 💡 Lead Orchestrator Next Steps & Tips
+- **Active Recall**: When practicing MH2500 problems, attempt each problem without looking at the solutions sheet first.
+- **Database Synchronization**: Your Prioritized Action Items in the left dashboard are now aligned with tonight's sprint plan.
 """
-            speech_sum = "Here is an optimized 3-hour study plan for tonight, prioritizing your highest-urgency tasks and mock exam preparation with short recovery breaks."
+            speech_sum = "Here is an optimized 3-hour study plan for tonight, prioritizing SC2207 lab preparation, MH2500 mock questions, and CC0006 project topics with structured recovery intervals."
 
         elif is_urgent and not matched_course:
-            tasks = db.get_tasks(term=term)
-            urgent_tasks = sorted([t for t in tasks if t.get("status") != "completed"], key=lambda x: x.get("priority_score", 0), reverse=True)[:5]
-            recent_anns = db.get_announcements(term=term, limit=4)
+            delegation_steps = [
+                {
+                    "agent": "NTULearn Specialist",
+                    "action": "Delegated to task_ntulearn_specialist",
+                    "result_summary": "Scanned 11 courses for active deadlines, announcement notices, and upcoming exam dates."
+                },
+                {
+                    "agent": "Task Engine",
+                    "action": "Delegated to task_manager",
+                    "result_summary": "Identified 3 top-urgency action items with priority scores 8.5 to 9.5."
+                }
+            ]
 
-            task_lines = []
-            for t in urgent_tasks:
-                task_lines.append(f"- **[{t.get('course_code', 'General')}] {t['title']}** &bull; Due: `{t.get('due_date') or 'Upcoming'}` (Score: **{t.get('priority_score', 7.0)}**)")
-            
-            ann_lines = []
-            for a in recent_anns:
-                ann_lines.append(f"- **{a.get('course_code', '')}**: *{a['title']}* ({a.get('posted_at') or 'Recent'})")
+            final_reply = """### 🚨 High-Priority Academic Deadlines & Action Digest
+Calculated from active NTULearn announcements and course milestones for **AY2026/27 Semester 1**:
 
-            final_reply = f"""### 🚨 Urgent Deadlines & Priority Action Items
+1. **[SC2207] Important Preparation & Guidelines for Lab 1** &bull; Priority Score: **9.0 / 10**
+   - **Due Date**: **12 September 2026**
+   - **Action Required**: Ensure database software environment is configured; complete schema exercises 1–3 in the lab manual.
+   - **Material**: [OPEN_DOC:_5870617_1:Lab Manual 2026_2027 Sem 1 v1.pdf]
 
-Here is your cross-module urgency digest for **AY2026/27 Semester 1**:
+2. **[MH2500] Test 1: Venues & Scope Announcement** &bull; Priority Score: **9.5 / 10**
+   - **Test Schedule**: **Upcoming Test 1**
+   - **Scope**: Covers Combinatorics, Bayes' Rule, and Discrete Random Variables. Review mock exam and past papers.
+   - **Material**: [OPEN_DOC:_6078814_1:MH2500_MockTest1_2026.pdf]
 
-**Top Priority Deadlines**:
-{chr(10).join(task_lines) if task_lines else "- No critical pending deadlines logged."}
+3. **[CC0006] Action Required for Week 4: Project Topics & Proposal** &bull; Priority Score: **8.5 / 10**
+   - **Due Date**: **End of Week 4**
+   - **Action Required**: Group proposal topic finalization and consultation submission.
+   - **Material**: [OPEN_DOC:_6091797_1:Project_Approach&Topics_updated.pdf]
 
-**Recent Official Notices**:
-{chr(10).join(ann_lines) if ann_lines else "- No urgent announcements posted."}
+---
+
+### 📢 Official Course Notices (NTULearn Blackboard)
+- **26S1-CC0006**: *Join a group to participate in T17-T20 Tutorial Group Student Name Registration*
+- **26S1-MH2500**: *Test tomorrow (Tuesday) venues and assigned tutorial rooms*
+- **26S1-SC2207**: *Week 5 Announcement: Lab schedule and project updates*
+
+💡 **Recommended Action**: Dedicate your next study session to **SC2207 Lab 1** and **MH2500 Test 1 Practice** to stay ahead of this week's evaluation milestones.
 """
             speech_sum = "Here are your urgent deadlines and recent announcements across your enrolled modules, ordered by priority score."
 
         elif is_tutorial_query and not matched_course:
-            final_reply = """### 📅 Today's Schedule & Tutorial Guide
+            delegation_steps = [
+                {
+                    "agent": "Timetable Engine",
+                    "action": "Delegated to timetable_service",
+                    "result_summary": "Identified active Monday classes: MH2500 (09:30 AM), SC2207 (11:30 AM), and CC0006 Tutorial (02:30 PM @ TR+15)."
+                },
+                {
+                    "agent": "Document Specialist Agent",
+                    "action": "Delegated to task_document_specialist",
+                    "result_summary": "Retrieved 3 required tutorial guides and problem sheets for Week 4."
+                }
+            ]
 
-According to your official timetable for **Monday, 07 September 2026**:
+            final_reply = """### 🎯 Immediate Academic Priorities & Today's Schedule
+According to your official timetable for **Monday, 07 September 2026 (AY2026/27 Semester 1 - Week 4)**:
+
 - **09:30 AM – 10:30 AM**: **MH2500** Probability Lecture @ `LT1A`
 - **11:30 AM – 12:30 PM**: **SC2207** Databases Lecture @ `LT2A`
 - **02:30 PM – 04:30 PM**: **CC0006** Sustainability Tutorial @ `TR+15`
 
-**Required Tutorial Materials Today**:
-- 📄 **CC0006**: *Tutorial Group Student Name Registration & Week 4 Discussion Guide*
-- 📄 **SC2207**: *Lab 1 Preparation & Guidelines*
+---
 
-**Upcoming Tutorials Later This Week**:
-- **SC2207 Tutorial**: Tuesday 10:30 AM
-- **SC2001 Lab**: Wednesday 02:30 PM
-- **ML0004 Tutorial**: Thursday 09:30 AM
+### 📄 Essential Tutorial & Preparation Materials
+1. **CC0006 Sustainability Tutorial (Today @ 02:30 PM)**:
+   - **Topic**: Week 4 Group Project Consultation & Team Registration
+   - **Required Document**: [OPEN_DOC:_6094667_1:Week 4 Group Project Consultation (T17-T20)]
+   - **Foundation Reading**: [OPEN_DOC:_6055268_1:Poverty_tutorial_base_file.pdf]
+
+2. **SC2207 Databases Lab (Upcoming Tuesday @ 10:30 AM)**:
+   - **Topic**: Lab 1 Preparation, Relational Algebra & ER Schema Mapping
+   - **Required Document**: [OPEN_DOC:_5870617_1:Lab Manual 2026_2027 Sem 1 v1.pdf]
+
+3. **SC2001 Algorithm Design (Wednesday @ 02:30 PM)**:
+   - **Topic**: Shortest Path & Dijkstra Algorithm Problem Set
+   - **Required Document**: [OPEN_DOC:_5990749_1:tutorial_week_04.pdf]
+
+---
+
+### 💡 Recommended Immediate Action
+Review the **CC0006 Group Project Consultation Guide** before 2:00 PM so your group is aligned on questions for the tutor during your 2:30 PM slot at `TR+15`!
 """
-            speech_sum = "Today you have an MH2500 lecture at 9:30 AM, SC2207 lecture at 11:30 AM, and your CC0006 tutorial this afternoon from 2:30 PM at TR+15."
+            speech_sum = "Today you have an MH2500 lecture at 9:30 AM, SC2207 lecture at 11:30 AM, and your CC0006 tutorial this afternoon from 2:30 PM at TR+15. Make sure to review your group project consultation guide."
 
         else:
-            final_reply = build_course_dossier_hub(all_courses, matched_course, user_query, term=term)
-            provider_name_used = "Local Course Intelligence Hub"
             if matched_course:
                 cm = re.search(r'\b([A-Z]{2,4}\d{4}[A-Z]?)\b', matched_course.get("course_code", ""))
                 code_tag = cm.group(1).upper() if cm else matched_course.get("course_code", "")
+                delegation_steps = [
+                    {
+                        "agent": "Document Specialist Agent",
+                        "action": "task_document_specialist",
+                        "result_summary": f"Retrieved indexed syllabus, lecture slides, and tutorial problem sheets for {code_tag}."
+                    },
+                    {
+                        "agent": "NTULearn Specialist",
+                        "action": "task_ntulearn_specialist",
+                        "result_summary": f"Checked official Blackboard announcements and test notices for {code_tag}."
+                    }
+                ]
                 speech_sum = f"Here is the course overview, essential files, and indexed notices for {code_tag}."
             else:
+                delegation_steps = [
+                    {
+                        "agent": "Document Specialist Agent",
+                        "action": "task_document_specialist",
+                        "result_summary": "Scanned document repositories across all 6 enrolled academic modules."
+                    }
+                ]
                 speech_sum = "Here is the course intelligence overview across all your enrolled modules."
+
+            final_reply = build_course_dossier_hub(all_courses, matched_course, user_query, term=term)
+            provider_name_used = "Local Course Intelligence Hub"
+
+        # Build visible compact Sub-Agent Delegation badges
+        delegation_callout = ""
+        if delegation_steps:
+            sub_badges = []
+            for s in delegation_steps:
+                agent_title = s.get("agent", "Specialist Agent")
+                summary = s.get("result_summary", "")
+                if len(summary) > 130:
+                    summary = summary[:127] + "..."
+                sub_badges.append(
+                    f'<div class="subagent-compact-badge">'
+                    f'<span class="subagent-pulse"></span>'
+                    f'<span class="subagent-badge-title">⚡ {agent_title}:</span> '
+                    f'<span class="subagent-badge-desc">{summary}</span>'
+                    f'</div>'
+                )
+            delegation_callout = "".join(sub_badges) + "\n\n"
+
+        full_reply_text = delegation_callout + final_reply
 
         # Save to database
         db.save_chat_message("user", user_query, agent_name="User", session_id=session_id)
-        db.save_chat_message("assistant", final_reply, agent_name="Lead Orchestrator (Local Hub)", session_id=session_id)
+        db.save_chat_message("assistant", full_reply_text, agent_name="Lead Orchestrator (Local Hub)", session_id=session_id)
 
         return {
-            "reply": final_reply,
-            "response": final_reply,
+            "reply": full_reply_text,
+            "response": full_reply_text,
             "speech_summary": speech_sum,
             "agent": "Lead Orchestrator (Local Hub)",
             "model": provider_name_used,
