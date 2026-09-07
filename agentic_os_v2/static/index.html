@@ -1976,39 +1976,130 @@ function sendPrompt(promptText) {
   document.getElementById("chat-form").dispatchEvent(new Event("submit"));
 }
 
+function formatMarkdownText(text) {
+  if (!text) return "";
+
+  // 1. Temporarily extract subagent badges so they aren't mangled by escapeHtml
+  const preservedBadges = [];
+  let intermediate = text.replace(/<div class="subagent-compact-badge">[\s\S]*?<\/div>/g, (match) => {
+    const placeholder = `___SUBAGENT_BADGE_${preservedBadges.length}___`;
+    preservedBadges.push(match);
+    return placeholder;
+  });
+
+  // 2. Escape HTML on the rest of the text
+  let formatted = escapeHtml(intermediate);
+
+  // 3. Restore preserved subagent badges
+  preservedBadges.forEach((badge, idx) => {
+    formatted = formatted.replace(`___SUBAGENT_BADGE_${idx}___`, badge);
+  });
+
+  // 4. Parse [OPEN_DOC:id:title] into clickable badge
+  formatted = formatted.replace(/\[OPEN_DOC:([^:]+):([^\]]+)\]/g, (match, docId, docTitle) => {
+    return `<br><a href="/api/materials/file/${docId}" target="_blank" class="doc-badge-link"><span style="font-size: 1.1rem;">&#128196;</span> Open Document: <strong>${docTitle}</strong> (PDF)</a><br>`;
+  });
+
+  // 5. Unescape safe inline formatting tags if present in subagent summaries
+  formatted = formatted.replace(/&lt;strong&gt;/g, '<strong>').replace(/&lt;\/strong&gt;/g, '</strong>');
+  formatted = formatted.replace(/&lt;em&gt;/g, '<em>').replace(/&lt;\/em&gt;/g, '</em>');
+  formatted = formatted.replace(/&lt;code&gt;/g, '<code>').replace(/&lt;\/code&gt;/g, '</code>');
+
+  // 6. Basic markdown headers
+  formatted = formatted.replace(/^### (.*?)$/gm, '<h4 style="color: var(--accent-cyan); margin: 8px 0 4px 0;">$1</h4>');
+  formatted = formatted.replace(/^#### (.*?)$/gm, '<h5 style="color: var(--text-main); margin: 6px 0 2px 0;">$1</h5>');
+
+  // 7. Bold & italic & code
+  formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  formatted = formatted.replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
+  formatted = formatted.replace(/`([^`]+)`/g, '<code style="font-family: \'JetBrains Mono\', monospace; background: rgba(255,255,255,0.08); padding: 1px 5px; border-radius: 4px;">$1</code>');
+
+  return formatted;
+}
+
+function extractDossierHub(content) {
+  if (!content) return { before: "", dossierHtml: null, after: "" };
+  const marker = "<!-- COURSE_DOSSIER_HUB -->";
+  const startIdx = content.indexOf(marker);
+  if (startIdx === -1) {
+    return { before: content, dossierHtml: null, after: "" };
+  }
+
+  const before = content.substring(0, startIdx);
+  const fromMarker = content.substring(startIdx);
+  const divStart = fromMarker.indexOf('<div class="course-dossier-hub"');
+  if (divStart === -1) {
+    return { before, dossierHtml: fromMarker, after: "" };
+  }
+
+  // Count open/close divs to find the exact closing tag of .course-dossier-hub
+  let depth = 0;
+  let endIdx = -1;
+  const tagRegex = /<\/?div\b[^>]*>/gi;
+  tagRegex.lastIndex = divStart;
+  let match;
+  while ((match = tagRegex.exec(fromMarker)) !== null) {
+    if (match[0].startsWith("</")) {
+      depth--;
+      if (depth === 0) {
+        endIdx = tagRegex.lastIndex;
+        break;
+      }
+    } else {
+      depth++;
+    }
+  }
+
+  if (endIdx !== -1) {
+    const dossierHtml = fromMarker.substring(0, endIdx);
+    const after = fromMarker.substring(endIdx);
+    return { before, dossierHtml, after };
+  } else {
+    return { before, dossierHtml: fromMarker, after: "" };
+  }
+}
+
+function switchDossierCourse(hubId, targetCode) {
+  const hub = document.getElementById(hubId);
+  if (!hub) return;
+
+  // 1. Update active tab button
+  const buttons = hub.querySelectorAll(".dossier-tab-btn");
+  buttons.forEach(btn => {
+    const onclickStr = btn.getAttribute("onclick") || "";
+    if (targetCode === "all" && onclickStr.includes("'all'")) {
+      btn.classList.add("active");
+    } else if (targetCode !== "all" && onclickStr.includes(`'${targetCode}'`)) {
+      btn.classList.add("active");
+    } else {
+      btn.classList.remove("active");
+    }
+  });
+
+  // 2. Filter course cards
+  const cards = hub.querySelectorAll(".dossier-course-card");
+  cards.forEach(card => {
+    const courseCode = card.getAttribute("data-course");
+    if (targetCode === "all" || courseCode === targetCode) {
+      card.style.display = "flex";
+    } else {
+      card.style.display = "none";
+    }
+  });
+}
+window.switchDossierCourse = switchDossierCourse;
+window.switchDossierTab = switchDossierCourse;
+
 function appendChatMessage(role, content, senderName, speechSummary) {
   const container = document.getElementById("chat-messages");
   const bubble = document.createElement("div");
   bubble.className = `chat-bubble ${role}`;
 
-  // Parse [OPEN_DOC:id:title] into clickable badge
-  let renderedContent = escapeHtml(content);
-  renderedContent = renderedContent.replace(/\[OPEN_DOC:([^:]+):([^\]]+)\]/g, (match, docId, docTitle) => {
-    return `<br><a href="/api/materials/file/${docId}" target="_blank" class="doc-badge-link"><span style="font-size: 1.1rem;">&#128196;</span> Open Document: <strong>${docTitle}</strong> (PDF)</a><br>`;
-  });
+  const { before, dossierHtml, after } = extractDossierHub(content);
 
-  // Unescape subagent compact badges & callout cards
-  renderedContent = renderedContent.replace(/&lt;div class=&quot;subagent-compact-badge&quot;&gt;/g, '<div class="subagent-compact-badge">');
-  renderedContent = renderedContent.replace(/&lt;span class=&quot;subagent-pulse&quot;&gt;&lt;\/span&gt;/g, '<span class="subagent-pulse"></span>');
-  renderedContent = renderedContent.replace(/&lt;span class=&quot;subagent-badge-title&quot;&gt;/g, '<span class="subagent-badge-title">');
-  renderedContent = renderedContent.replace(/&lt;span class=&quot;subagent-badge-desc&quot;&gt;/g, '<span class="subagent-badge-desc">');
-  renderedContent = renderedContent.replace(/&lt;span class=&quot;subagent-label&quot;&gt;/g, '<span class="subagent-badge-title">');
-  renderedContent = renderedContent.replace(/&lt;span class=&quot;subagent-finding&quot;&gt;/g, '<span class="subagent-badge-desc">');
-  renderedContent = renderedContent.replace(/&lt;div class=&quot;subagent-callout-card&quot;&gt;/g, '<div class="subagent-compact-badge">');
-  renderedContent = renderedContent.replace(/&lt;div class=&quot;subagent-header&quot;&gt;/g, '<span class="subagent-badge-title">');
-  renderedContent = renderedContent.replace(/&lt;div class=&quot;subagent-body&quot;&gt;/g, '<span class="subagent-badge-desc">');
-  renderedContent = renderedContent.replace(/&lt;strong&gt;/g, '<strong>').replace(/&lt;\/strong&gt;/g, '</strong>');
-  renderedContent = renderedContent.replace(/&lt;em&gt;/g, '<em>').replace(/&lt;\/em&gt;/g, '</em>');
-  renderedContent = renderedContent.replace(/&lt;code&gt;/g, '<code>').replace(/&lt;\/code&gt;/g, '</code>');
-  renderedContent = renderedContent.replace(/&lt;\/span&gt;/g, '</span>');
-  renderedContent = renderedContent.replace(/&lt;br&gt;/g, ' ');
-  renderedContent = renderedContent.replace(/&lt;\/div&gt;/g, '</div>');
-
-  // Basic markdown header/bold formatting
-  renderedContent = renderedContent.replace(/### (.*?)\n/g, '<h4 style="color: var(--accent-cyan); margin: 6px 0;">$1</h4>');
-  renderedContent = renderedContent.replace(/#### (.*?)\n/g, '<h5 style="color: var(--text-main); margin: 4px 0;">$1</h5>');
-  renderedContent = renderedContent.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-  renderedContent = renderedContent.replace(/`([^`]+)`/g, '<code style="font-family: monospace; background: rgba(255,255,255,0.08); padding: 1px 5px; border-radius: 4px;">$1</code>');
+  if (dossierHtml) {
+    bubble.classList.add("dossier-bubble");
+  }
 
   const listenBtnHtml = role === "assistant" 
     ? `<button type="button" class="btn-read-bubble" onclick="readBubbleText(this)" title="Read aloud">&#128266; Listen</button>` 
@@ -2019,11 +2110,34 @@ function appendChatMessage(role, content, senderName, speechSummary) {
     bubble.dataset.speechSummary = finalSpeech;
   }
 
-  bubble.innerHTML = `
-    <div class="sender-tag">${escapeHtml(senderName)}</div>
-    ${listenBtnHtml}
-    <div class="bubble-text-content" style="white-space: pre-wrap; line-height: 1.6;">${renderedContent}</div>
-  `;
+  let renderedBefore = "";
+  if (before && before.trim()) {
+    renderedBefore = `<div class="bubble-text-content" style="white-space: pre-wrap; line-height: 1.6; margin-bottom: 8px;">${formatMarkdownText(before)}</div>`;
+  }
+
+  let renderedAfter = "";
+  if (after && after.trim()) {
+    renderedAfter = `<div class="bubble-text-content" style="white-space: pre-wrap; line-height: 1.6; margin-top: 8px;">${formatMarkdownText(after)}</div>`;
+  }
+
+  if (dossierHtml) {
+    bubble.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+        <div class="sender-tag" style="margin-bottom:0;">${escapeHtml(senderName)}</div>
+        ${listenBtnHtml}
+      </div>
+      ${renderedBefore}
+      ${dossierHtml}
+      ${renderedAfter}
+    `;
+  } else {
+    bubble.innerHTML = `
+      <div class="sender-tag">${escapeHtml(senderName)}</div>
+      ${listenBtnHtml}
+      <div class="bubble-text-content" style="white-space: pre-wrap; line-height: 1.6;">${formatMarkdownText(content)}</div>
+    `;
+  }
+
   container.appendChild(bubble);
   container.scrollTop = container.scrollHeight;
 

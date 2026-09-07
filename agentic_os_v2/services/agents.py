@@ -557,7 +557,7 @@ def build_course_dossier_hub(courses: List[Dict[str, Any]], target_course: Optio
 
         anns_col_html = "".join(ann_items)
 
-        is_card_visible = "style=\"display:block;\"" if (default_tab == "all" or default_tab == clean) else "style=\"display:none;\""
+        is_card_visible = "style=\"display:flex;\"" if (default_tab == "all" or default_tab == clean) else "style=\"display:none;\""
 
         card_html = f'''
         <div class="dossier-course-card" data-course="{clean}" {is_card_visible}>
