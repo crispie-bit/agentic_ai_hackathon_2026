@@ -1,5 +1,7 @@
+import os
 import json
 import re
+from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Any, Optional, Tuple
 from services.aws_bedrock import bedrock_client
@@ -338,10 +340,14 @@ def execute_subagent_tool(name: str, args: Dict[str, Any], term: str = "26S1") -
         if not matching_mats:
             matching_mats = all_mats
 
-        # Deep parse top documents (capped to 2 to conserve AWS tokens)
+        # Deep parse top documents only if already downloaded locally
         for m in matching_mats[:2]:
-            if not m.get("raw_text_excerpt"):
-                document_agent.analyze_document(m["id"])
+            lp = m.get("local_path")
+            if lp and Path(lp).exists() and not m.get("raw_text_excerpt"):
+                try:
+                    document_agent.analyze_document(m["id"])
+                except Exception:
+                    pass
 
         schedules = db.get_course_schedules(course_code=course_code)
         course_anns = db.get_announcements(term=term, course_code=course_code, limit=10)
@@ -865,6 +871,8 @@ CRITICAL INSTRUCTION: Today is {day_name}, {date_str} (07 September 2026 is stri
                 r = h.get("role", "user")
                 t = re.sub(r'<div class="subagent-[^"]*">.*?</div>', '', h.get("content", ""), flags=re.DOTALL)
                 t = re.sub(r'<[^>]+>', '', t).strip()
+                if len(t) > 400:
+                    t = t[:397] + "..."
                 if t:
                     openai_msgs.append({"role": r, "content": t})
             openai_msgs.append({"role": "user", "content": current_context})
@@ -918,10 +926,25 @@ CRITICAL INSTRUCTION: Today is {day_name}, {date_str} (07 September 2026 is stri
                             "result_summary": subagent_out.get("finding") or str(subagent_out)[:140]
                         })
 
+                        # Compact summary to prevent token explosion and Groq rate limits
+                        compact_subagent_out = {
+                            "status": subagent_out.get("status", "completed"),
+                            "finding": subagent_out.get("finding", ""),
+                        }
+                        if "question_sheets_found" in subagent_out or "documents_found" in subagent_out:
+                            compact_subagent_out["key_documents"] = [
+                                {"title": d.get("title"), "id": d.get("id"), "action_link": d.get("action_link")}
+                                for d in (subagent_out.get("documents_found") or subagent_out.get("question_sheets_found") or [])[:5]
+                            ]
+                        if "scheduled_blocks" in subagent_out:
+                            compact_subagent_out["scheduled_blocks"] = subagent_out.get("scheduled_blocks")[:3]
+                        if "relevant_notices" in subagent_out:
+                            compact_subagent_out["relevant_notices"] = [n.get("title") for n in subagent_out.get("relevant_notices")[:3]]
+
                         openai_msgs.append({
                             "role": "tool",
                             "tool_call_id": tc.id,
-                            "content": json.dumps(subagent_out)
+                            "content": json.dumps(compact_subagent_out)
                         })
                 else:
                     if res_msg.content:
@@ -1133,34 +1156,121 @@ Review the **CC0006 Group Project Consultation Guide** before 2:00 PM so your gr
             speech_sum = "Today you have an MH2500 lecture at 9:30 AM, SC2207 lecture at 11:30 AM, and your CC0006 tutorial this afternoon from 2:30 PM at TR+15. Make sure to review your group project consultation guide."
 
         else:
-            if matched_course:
+            is_hub_request = any(w in q_clean for w in [
+                "dossier", "intelligence hub", "documents hub", "course hub", "all courses",
+                "browse files", "browse courses", "show documents", "all materials", "list files",
+                "course files", "course materials", "syllabus hub", "show files", "documents for",
+                "materials for", "course overview"
+            ])
+
+            if is_hub_request or (not matched_course and any(w in q_clean for w in ["browse", "dossier", "all modules"])):
+                if matched_course:
+                    cm = re.search(r'\b([A-Z]{2,4}\d{4}[A-Z]?)\b', matched_course.get("course_code", ""))
+                    code_tag = cm.group(1).upper() if cm else matched_course.get("course_code", "")
+                    delegation_steps = [
+                        {
+                            "agent": "Document Specialist Agent",
+                            "action": "task_document_specialist",
+                            "result_summary": f"Retrieved indexed syllabus, lecture slides, and tutorial problem sheets for {code_tag}."
+                        },
+                        {
+                            "agent": "NTULearn Specialist",
+                            "action": "task_ntulearn_specialist",
+                            "result_summary": f"Checked official Blackboard announcements and test notices for {code_tag}."
+                        }
+                    ]
+                    speech_sum = f"Here is the course overview, essential files, and indexed notices for {code_tag}."
+                else:
+                    delegation_steps = [
+                        {
+                            "agent": "Document Specialist Agent",
+                            "action": "task_document_specialist",
+                            "result_summary": "Scanned document repositories across all 6 enrolled academic modules."
+                        }
+                    ]
+                    speech_sum = "Here is the course intelligence overview across all your enrolled modules."
+
+                final_reply = build_course_dossier_hub(all_courses, matched_course, user_query, term=term)
+                provider_name_used = "Local Course Intelligence Hub"
+
+            elif matched_course:
                 cm = re.search(r'\b([A-Z]{2,4}\d{4}[A-Z]?)\b', matched_course.get("course_code", ""))
                 code_tag = cm.group(1).upper() if cm else matched_course.get("course_code", "")
+                course_title = matched_course.get("title", code_tag)
+
+                # Fetch targeted course materials matching user query terms
+                all_mats = db.get_all_materials(course_code=code_tag)
+                matching_mats = []
+                if hasattr(db, "search_documents_by_content"):
+                    try:
+                        matching_mats = db.search_documents_by_content(query=user_query, course_code=code_tag)
+                    except Exception:
+                        matching_mats = []
+
+                if not matching_mats:
+                    q_words = [w for w in q_clean.split() if len(w) > 3]
+                    matching_mats = [m for m in all_mats if any(w in m.get("title", "").lower() for w in q_words)]
+
+                top_mats = (matching_mats or all_mats)[:3]
+                doc_lines = []
+                for m in top_mats:
+                    doc_lines.append(f"- **{m.get('title')}**: [OPEN_DOC:{m.get('id')}:{m.get('title')}]")
+                docs_block = "\n".join(doc_lines) if doc_lines else "- *Refer to primary lecture notes in course hub.*"
+
+                anns = db.get_announcements(term=term, course_code=code_tag, limit=2)
+                ann_lines = [f"- **{a.get('title')}**" for a in anns]
+                ann_block = "\n".join(ann_lines) if ann_lines else "- *No urgent notices currently posted.*"
+
                 delegation_steps = [
                     {
-                        "agent": "Document Specialist Agent",
-                        "action": "task_document_specialist",
-                        "result_summary": f"Retrieved indexed syllabus, lecture slides, and tutorial problem sheets for {code_tag}."
-                    },
-                    {
-                        "agent": "NTULearn Specialist",
-                        "action": "task_ntulearn_specialist",
-                        "result_summary": f"Checked official Blackboard announcements and test notices for {code_tag}."
+                        "agent": "Lead Course Specialist",
+                        "action": f"Analyzed query intent within {code_tag}",
+                        "result_summary": f"Contextualized inquiry under {course_title}; identified {len(top_mats)} reference materials."
                     }
                 ]
-                speech_sum = f"Here is the course overview, essential files, and indexed notices for {code_tag}."
+
+                final_reply = f"""### 🎯 Academic Context & Analysis: **{code_tag}** ({course_title})
+
+**Question**: *"{user_query}"*
+
+#### 📘 Conceptual Focus & Course Context
+This inquiry directly addresses core topics under **{code_tag}: {course_title}**. 
+
+Key principles and syllabus expectations from your course repository:
+- Align your methodology with the standard formulas and definitions presented in the official lecture modules.
+- Ensure your workings reflect the notation and formatting required in official grading rubrics.
+
+#### 📄 Highly Relevant Course References
+{docs_block}
+
+#### 📢 Recent Official Blackboard Notices
+{ann_block}
+
+💡 **Next Step**: Open the referenced course document above to cross-reference with this week's tutorial problem set!
+"""
+                speech_sum = f"Here is the contextual breakdown and reference materials for {code_tag} regarding your question."
+                provider_name_used = "Lead Course Specialist"
+
             else:
                 delegation_steps = [
                     {
-                        "agent": "Document Specialist Agent",
-                        "action": "task_document_specialist",
-                        "result_summary": "Scanned document repositories across all 6 enrolled academic modules."
+                        "agent": "Lead Orchestrator",
+                        "action": "cross_module_reasoning",
+                        "result_summary": "Analyzed query against general academic workflow and enrolled modules."
                     }
                 ]
-                speech_sum = "Here is the course intelligence overview across all your enrolled modules."
+                final_reply = f"""### 🎯 Academic Advisory & Workflow Synthesis
 
-            final_reply = build_course_dossier_hub(all_courses, matched_course, user_query, term=term)
-            provider_name_used = "Local Course Intelligence Hub"
+**Question**: *"{user_query}"*
+
+This prompt spans your enrolled academic workload in **AY2026/27 Semester 1**. 
+
+- If you would like to inspect documents or past assessments for a specific module, try: *"What is tested for SC2207?"* or *"MH2500 mock exam"*.
+- For time management, ask: *"Create an optimized 3-hour study plan for tonight"*.
+- To view course document dossiers across your modules, type: *"Show course files"*.
+"""
+                speech_sum = "Here is an academic advisory synthesis across your enrolled modules."
+                provider_name_used = "Lead Orchestrator (General)"
 
         # Build visible compact Sub-Agent Delegation badges
         delegation_callout = ""

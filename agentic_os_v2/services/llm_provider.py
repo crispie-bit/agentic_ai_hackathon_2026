@@ -279,38 +279,46 @@ class LLMProvider:
         # PRIORITY 2: Groq Cloud
         # -------------------------------------------------------------
         if self._groq_client:
-            groq_model = normalize_groq_model(os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"))
-            t0 = time.time()
-            try:
-                kwargs = {
-                    "model": groq_model,
-                    "messages": formatted_messages,
-                    "temperature": temperature,
-                    "max_tokens": max_tokens,
-                }
-                if tools:
-                    kwargs["tools"] = tools
-                    kwargs["tool_choice"] = "auto"
+            primary_groq = normalize_groq_model(os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b"))
+            models_to_try = [primary_groq]
+            backup = "openai/gpt-oss-20b" if primary_groq != "openai/gpt-oss-20b" else "qwen/qwen3.8-27b"
+            models_to_try.append(backup)
 
-                resp = self._groq_client.chat.completions.create(**kwargs)
-                latency_ms = (time.time() - t0) * 1000
-                if resp.choices and len(resp.choices) > 0:
-                    pt = getattr(resp.usage, "prompt_tokens", 0) if hasattr(resp, "usage") and resp.usage else 0
-                    ct = getattr(resp.usage, "completion_tokens", 0) if hasattr(resp, "usage") and resp.usage else 0
-                    tt = getattr(resp.usage, "total_tokens", 0) if hasattr(resp, "usage") and resp.usage else (pt + ct)
-                    try:
-                        db.record_token_usage("Groq", groq_model, pt, ct, tt, latency_ms, "success", "chat")
-                    except Exception as e_db:
-                        logger.warning(f"Could not log token usage: {e_db}")
-                    return resp.choices[0].message, f"Groq ({groq_model})"
-            except Exception as e:
-                err_str = str(e)
-                latency_ms = (time.time() - t0) * 1000
+            for groq_model in models_to_try:
+                t0 = time.time()
                 try:
-                    db.record_token_usage("Groq", groq_model, 0, 0, 0, latency_ms, "fallback", "chat", err_str[:200])
-                except Exception:
-                    pass
-                print(f"[LLMProvider] Groq notice ({err_str[:120]}). Auto-falling back to Gemini...")
+                    kwargs = {
+                        "model": groq_model,
+                        "messages": formatted_messages,
+                        "temperature": temperature,
+                        "max_tokens": max_tokens,
+                    }
+                    if tools:
+                        kwargs["tools"] = tools
+                        kwargs["tool_choice"] = "auto"
+
+                    resp = self._groq_client.chat.completions.create(**kwargs)
+                    latency_ms = (time.time() - t0) * 1000
+                    if resp.choices and len(resp.choices) > 0:
+                        pt = getattr(resp.usage, "prompt_tokens", 0) if hasattr(resp, "usage") and resp.usage else 0
+                        ct = getattr(resp.usage, "completion_tokens", 0) if hasattr(resp, "usage") and resp.usage else 0
+                        tt = getattr(resp.usage, "total_tokens", 0) if hasattr(resp, "usage") and resp.usage else (pt + ct)
+                        try:
+                            db.record_token_usage("Groq", groq_model, pt, ct, tt, latency_ms, "success", "chat")
+                        except Exception as e_db:
+                            logger.warning(f"Could not log token usage: {e_db}")
+                        return resp.choices[0].message, f"Groq ({groq_model})"
+                except Exception as e:
+                    err_str = str(e)
+                    latency_ms = (time.time() - t0) * 1000
+                    try:
+                        db.record_token_usage("Groq", groq_model, 0, 0, 0, latency_ms, "fallback", "chat", err_str[:200])
+                    except Exception:
+                        pass
+                    if "429" in err_str or "rate limit" in err_str.lower() or "413" in err_str:
+                        continue
+                    print(f"[LLMProvider] Groq notice ({err_str[:120]}). Auto-falling back to Gemini...")
+                    break
 
         # -------------------------------------------------------------
         # PRIORITY 3: Google Gemini
