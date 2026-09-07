@@ -13,12 +13,96 @@ ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
 if ENV_FILE.exists():
     load_dotenv(ENV_FILE, override=False)
 
+import requests
+
 try:
     from openai import OpenAI
     OPENAI_AVAILABLE = True
 except ImportError:
     OPENAI_AVAILABLE = False
     OpenAI = None
+
+class SimpleResponseUsage:
+    def __init__(self, prompt_tokens=0, completion_tokens=0, total_tokens=0):
+        self.prompt_tokens = prompt_tokens
+        self.completion_tokens = completion_tokens
+        self.total_tokens = total_tokens
+
+class SimpleToolCallFunction:
+    def __init__(self, name, arguments):
+        self.name = name
+        self.arguments = arguments
+
+class SimpleToolCall:
+    def __init__(self, id, name, arguments):
+        self.id = id
+        self.type = "function"
+        self.function = SimpleToolCallFunction(name, arguments)
+
+class SimpleResponseMessage:
+    def __init__(self, content="", tool_calls=None):
+        self.content = content
+        self.tool_calls = tool_calls or []
+
+class SimpleChoice:
+    def __init__(self, message):
+        self.message = message
+
+class SimpleChatCompletionResponse:
+    def __init__(self, choices, usage=None):
+        self.choices = choices
+        self.usage = usage
+
+class HttpChatCompletions:
+    def __init__(self, base_url: str, api_key: str, timeout: float = 30.0):
+        self.base_url = base_url.rstrip("/")
+        self.api_key = api_key
+        self.timeout = timeout
+
+    def create(self, **kwargs):
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+        url = f"{self.base_url}/chat/completions"
+        resp = requests.post(url, headers=headers, json=kwargs, timeout=self.timeout)
+        if resp.status_code != 200:
+            raise RuntimeError(f"HTTP {resp.status_code}: {resp.text[:220]}")
+        data = resp.json()
+        choices = []
+        for ch in data.get("choices", []):
+            m_data = ch.get("message", {})
+            t_calls = []
+            for tc in m_data.get("tool_calls", []):
+                fn = tc.get("function", {})
+                t_calls.append(SimpleToolCall(
+                    id=tc.get("id", f"call_{int(time.time()*1000)}"),
+                    name=fn.get("name", ""),
+                    arguments=fn.get("arguments", "{}")
+                ))
+            msg = SimpleResponseMessage(
+                content=m_data.get("content", ""),
+                tool_calls=t_calls if t_calls else None
+            )
+            choices.append(SimpleChoice(msg))
+
+        usage_data = data.get("usage", {})
+        usage = SimpleResponseUsage(
+            prompt_tokens=usage_data.get("prompt_tokens", 0),
+            completion_tokens=usage_data.get("completion_tokens", 0),
+            total_tokens=usage_data.get("total_tokens", 0)
+        )
+        return SimpleChatCompletionResponse(choices=choices, usage=usage)
+
+class HttpOpenAIClient:
+    def __init__(self, base_url: str, api_key: str, timeout: float = 30.0):
+        self.chat = type("Chat", (), {"completions": HttpChatCompletions(base_url, api_key, timeout)})()
+
+def normalize_groq_model(model_name: Optional[str]) -> str:
+    m = (model_name or "").strip()
+    if not m or "openai" in m.lower() or "gpt" in m.lower():
+        return "llama-3.3-70b-versatile"
+    return m
 
 from services.aws_bedrock import bedrock_client
 from core.config import LEAD_MODEL_ID
@@ -28,8 +112,8 @@ class LLMProvider:
     """
     Unified Cascading LLM Provider with strict priority order:
     1. Priority 1: AWS Bedrock (Claude 3.5 / 4.5 Sonnet)
-    2. Priority 2: Groq Cloud (qwen/qwen3.8-27b or llama-3.3-70b-versatile)
-    3. Priority 3: Google Gemini (gemini-3.6-flash)
+    2. Priority 2: Groq Cloud (llama-3.3-70b-versatile or qwen/qwen3.8-27b)
+    3. Priority 3: Google Gemini (gemini-2.5-flash / gemini-1.5-flash)
     4. Priority 4: Local Offline Specialist Search Engine (Deterministic SQLite)
     """
     def __init__(self):
@@ -38,19 +122,23 @@ class LLMProvider:
         self.reload_clients()
 
     def reload_clients(self):
-        if not OPENAI_AVAILABLE:
-            return
-
         groq_key = os.getenv("GROQ_API_KEY", "").strip()
         gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
 
         if groq_key:
             try:
-                self._groq_client = OpenAI(
-                    base_url="https://api.groq.com/openai/v1",
-                    api_key=groq_key,
-                    timeout=30.0,
-                )
+                if OpenAI:
+                    self._groq_client = OpenAI(
+                        base_url="https://api.groq.com/openai/v1",
+                        api_key=groq_key,
+                        timeout=30.0,
+                    )
+                else:
+                    self._groq_client = HttpOpenAIClient(
+                        base_url="https://api.groq.com/openai/v1",
+                        api_key=groq_key,
+                        timeout=30.0,
+                    )
             except Exception as e:
                 logger.warning(f"Failed to initialize Groq client: {e}")
                 self._groq_client = None
@@ -59,11 +147,18 @@ class LLMProvider:
 
         if gemini_key:
             try:
-                self._gemini_client = OpenAI(
-                    base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
-                    api_key=gemini_key,
-                    timeout=45.0,
-                )
+                if OpenAI:
+                    self._gemini_client = OpenAI(
+                        base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+                        api_key=gemini_key,
+                        timeout=45.0,
+                    )
+                else:
+                    self._gemini_client = HttpOpenAIClient(
+                        base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+                        api_key=gemini_key,
+                        timeout=45.0,
+                    )
             except Exception as e:
                 logger.warning(f"Failed to initialize Gemini client: {e}")
                 self._gemini_client = None
@@ -184,7 +279,7 @@ class LLMProvider:
         # PRIORITY 2: Groq Cloud
         # -------------------------------------------------------------
         if self._groq_client:
-            groq_model = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
+            groq_model = normalize_groq_model(os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"))
             t0 = time.time()
             try:
                 kwargs = {

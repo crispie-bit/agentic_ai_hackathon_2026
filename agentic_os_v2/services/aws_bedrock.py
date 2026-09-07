@@ -60,16 +60,22 @@ class BedrockClient:
         curr_prof = os.getenv("AWS_PROFILE", "").strip()
         if curr_st != self._last_token and curr_prof != self._last_token:
             self.reload_client()
-        return self._client is not None
+        if not self._client:
+            return False
+        if getattr(self, "_last_auth_valid", None) is False:
+            return False
+        return True
 
     def get_account_identity(self) -> Dict[str, Any]:
         self.reload_client()
         if not self._session:
+            self._last_auth_valid = False
             return {"ready": False, "error": "No AWS credentials configured."}
         try:
             region = os.getenv("AWS_REGION", "us-east-1").strip() or "us-east-1"
             sts = self._session.client("sts", region_name=region)
             identity = sts.get_caller_identity()
+            self._last_auth_valid = True
             return {
                 "ready": True,
                 "arn": identity.get("Arn", "Unknown ARN"),
@@ -78,6 +84,7 @@ class BedrockClient:
                 "region": region,
             }
         except Exception as e:
+            self._last_auth_valid = False
             return {"ready": False, "error": f"STS Authentication failed: {e}"}
 
 bedrock_client = BedrockClient()
